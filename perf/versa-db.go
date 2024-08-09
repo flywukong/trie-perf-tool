@@ -127,6 +127,9 @@ func (v *VersaDBRunner) GetStorage(owner []byte, key []byte) ([]byte, error) {
 		}
 	}
 	_, val, err := v.db.Get(tHandler, key)
+	if found {
+		fmt.Println("failed to read key using caching tree hanlder, err:", err.Error())
+	}
 	return val, err
 }
 
