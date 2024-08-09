@@ -123,7 +123,7 @@ func main() {
 			},
 			&cli.Uint64Flag{
 				Name:        "triesize",
-				Aliases:     []string{"t"},
+				Aliases:     []string{"ts"},
 				Usage:       "storage trie size",
 				Value:       1000000,
 				Destination: &config.KeyRange,
