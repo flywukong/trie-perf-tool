@@ -213,8 +213,10 @@ func runPerfDB(c *cli.Context) error {
 	fmt.Println("Enabling stand-alone metrics HTTP endpoint", "address", address)
 	exp.Setup(address)
 
-	//http.HandleFunc("/debug/pprof/heap", pprof.Index)
-	http.ListenAndServe(":6061", nil)
+	// http.HandleFunc("/debug/pprof/heap", pprof.Index)
+	go func() {
+		http.ListenAndServe(":6061", nil)
+	}()
 
 	go metrics.CollectProcessMetrics(3 * time.Second)
 	runner.Run(ctx)
