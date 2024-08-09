@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	VersaDB "github.com/bnb-chain/versioned-state-database"
+	versaDB "github.com/bnb-chain/versioned-state-database"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -15,12 +16,12 @@ import (
 )
 
 type VersaDBRunner struct {
-	db                *VersaDB.VersaDB
-	stateHandler      VersaDB.StateHandler
-	rootTree          VersaDB.TreeHandler
+	db                *versaDB.VersaDB
+	stateHandler      versaDB.StateHandler
+	rootTree          versaDB.TreeHandler
 	version           int64
 	stateRoot         common.Hash
-	ownerStorageCache map[common.Hash]versa_db.TreeHandler
+	ownerStorageCache map[common.Hash]versaDB.TreeHandler
 	lock              sync.RWMutex
 }
 
@@ -52,7 +53,7 @@ func OpenVersaDB(path string, version int64) *VersaDBRunner {
 		stateRoot:         ethTypes.EmptyRootHash,
 		rootTree:          rootTree,
 		stateHandler:      stateHanlder,
-		ownerStorageCache: make(map[common.Hash]versa_db.TreeHandler),
+		ownerStorageCache: make(map[common.Hash]versaDB.TreeHandler),
 	}
 }
 
