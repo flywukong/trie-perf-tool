@@ -3,14 +3,14 @@ package main
 import (
 	"github.com/bnb-chain/versioned-state-database/store"
 
-	versa_tree "github.com/bnb-chain/versioned-state-database/tree"
+	versaTree "github.com/bnb-chain/versioned-state-database/tree"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 )
 
 type VersaTrie struct {
-	trie versa_tree.Tree
+	trie versaTree.Tree
 }
 
 func OpenVersaTrie(version int64, rootHash []byte) *VersaTrie {
@@ -18,7 +18,7 @@ func OpenVersaTrie(version int64, rootHash []byte) *VersaTrie {
 	if err != nil {
 		panic(err.Error())
 	}
-	t := versa_tree.OpenTree(common.Hash{}, version, rootHash, false, store)
+	t := versaTree.OpenTree(common.Hash{}, version, rootHash, false, store)
 	return &VersaTrie{
 		trie: t,
 	}
