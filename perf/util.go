@@ -13,6 +13,19 @@ import (
 	"github.com/holiman/uint256"
 )
 
+type CAKeyValue struct {
+	Keys    []string
+	Vals    []string
+	Account []byte
+}
+
+const (
+	CAStorageSize = 100
+	CAStorageNum  = 3
+)
+
+type DBTask map[string]CAKeyValue
+
 type Stat struct {
 	ioStat      IOStat
 	lastIoStat  IOStat
@@ -134,6 +147,34 @@ func makeAccounts(size int) (addresses [][20]byte, accounts [][]byte) {
 	return addresses, accounts
 }
 
+func makeStorage(size int) (addresses [][20]byte, accounts [][]byte) {
+	random := rand.New(rand.NewSource(0))
+	// Create a realistic account trie to hash
+	addresses = make([][20]byte, size)
+	for i := 0; i < len(addresses); i++ {
+		data := make([]byte, 20)
+		random.Read(data)
+		rand.Seed(time.Now().UnixNano())
+		rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+		copy(addresses[i][:], data)
+	}
+	accounts = make([][]byte, len(addresses))
+	for i := 0; i < len(accounts); i++ {
+		var (
+			nonce = uint64(random.Int63())
+			root  = types.EmptyRootHash
+			code  = crypto.Keccak256(nil)
+		)
+		numBytes := random.Uint32() % 33 // [0, 32] bytes
+		balanceBytes := make([]byte, numBytes)
+		random.Read(balanceBytes)
+		balance := new(uint256.Int).SetBytes(balanceBytes)
+		data, _ := rlp.EncodeToBytes(&types.StateAccount{Nonce: nonce, Balance: balance, Root: root, CodeHash: code})
+		accounts[i] = data
+	}
+	return addresses, accounts
+}
+
 // randomFloat returns a random float64 between 0 and 1
 func randomFloat() float64 {
 	rand.Seed(time.Now().UnixNano())
@@ -183,4 +224,27 @@ func (s *InsertedKeySet) RandomItem() (string, bool) {
 	}
 	randomIndex := rand.Intn(len(s.items))
 	return s.items[randomIndex], true
+}
+
+// GetNRandomSets returns n slices, each containing m unique keys. No key is repeated across slices.
+func (s *InsertedKeySet) GetNRandomSets(n int, m int) ([][]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	totalItems := len(s.items)
+	if n*m > totalItems {
+		return nil, fmt.Errorf("not enough items in the set to generate %d sets of %d items", n, m)
+	}
+
+	result := make([][]string, n)
+	allIndices := rand.Perm(totalItems) // Generate a random permutation of indices
+	for i := 0; i < n; i++ {
+		set := make([]string, m)
+		for j := 0; j < m; j++ {
+			set[j] = s.items[allIndices[i*m+j]]
+		}
+		result[i] = set
+	}
+
+	return result, nil
 }

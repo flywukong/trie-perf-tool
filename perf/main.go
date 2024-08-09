@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"time"
@@ -51,6 +52,14 @@ func main() {
 				Usage: "Press random keys into the trie database",
 				Action: func(c *cli.Context) error {
 					runPerf(c)
+					return nil
+				},
+			},
+			{
+				Name:  "press-db",
+				Usage: "Press random keys into the trie database",
+				Action: func(c *cli.Context) error {
+					runPerfDB(c)
 					return nil
 				},
 			},
@@ -179,6 +188,32 @@ func runPerf(c *cli.Context) error {
 	address := net.JoinHostPort(c.String("metrics.addr"), fmt.Sprintf("%d", c.Int("metrics.port")))
 	fmt.Println("Enabling stand-alone metrics HTTP endpoint", "address", address)
 	exp.Setup(address)
+
+	go metrics.CollectProcessMetrics(3 * time.Second)
+	runner.Run(ctx)
+	return nil
+}
+
+func runPerfDB(c *cli.Context) error {
+	var stateDB StateDatabase
+	engine := c.String("engine")
+	if engine == VERSADBEngine {
+		fmt.Println("start to test trie:", VERSADBEngine)
+		stateDB = OpenVersaDB("versa-db", 0)
+	} else if engine == StateTrieEngine {
+		dir, _ := os.Getwd()
+		stateDB = NewStateRunner(filepath.Join(dir, "state-trie-dir"), types.EmptyRootHash)
+	}
+	runner := NewDBRunner(stateDB, parsePerfConfig(c), 1000)
+	ctx, cancel := context.WithTimeout(context.Background(), c.Duration("runtime"))
+	defer cancel()
+
+	address := net.JoinHostPort(c.String("metrics.addr"), fmt.Sprintf("%d", c.Int("metrics.port")))
+	fmt.Println("Enabling stand-alone metrics HTTP endpoint", "address", address)
+	exp.Setup(address)
+
+	//http.HandleFunc("/debug/pprof/heap", pprof.Index)
+	//http.ListenAndServe(":80", nil)
 
 	go metrics.CollectProcessMetrics(3 * time.Second)
 	runner.Run(ctx)

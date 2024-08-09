@@ -39,13 +39,10 @@ func OpenPbssDB(dataDir string, root common.Hash) *PbssRawTrie {
 }
 
 func (p *PbssRawTrie) Commit() (common.Hash, error) {
-	root, nodes := p.trie.Commit(true)
-	/*
-		if err != nil {
-			fmt.Println("commit err", err)
-			return types.EmptyRootHash, err
-		}
-	*/
+	root, nodes, err := p.trie.Commit(true)
+	if err != nil {
+		return types.EmptyRootHash, err
+	}
 	if nodes != nil {
 		if err := p.nodes.Merge(nodes); err != nil {
 			return types.EmptyRootHash, err
@@ -94,10 +91,30 @@ func createChainDataBase(datadir string) (ethdb.Database, error) {
 
 // MakePBSSTrieDatabase constructs a trie database based on the configured scheme.
 func MakePBSSTrieDatabase(datadir string) (*triedb.Database, error) {
+
 	diskdb, err := createChainDataBase(datadir)
 	if err != nil {
 		return nil, err
 	}
+	/*
+		data := filepath.Join(datadir, "geth")
+		directory := filepath.Join(data, "chaindata")
+		diskdb, err := rawdb.Open(rawdb.OpenOptions{
+			Type:              "pebble",
+			Directory:         directory,
+			AncientsDirectory: "",
+			Namespace:         "",
+			Cache:             1000,
+			Handles:           20000,
+			ReadOnly:          false,
+			DisableFreeze:     true,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+	
+	*/
 	config := &triedb.Config{
 		PathDB: pathdb.Defaults,
 	}

@@ -1,19 +1,24 @@
 package main
 
 import (
-	"versioned-state-database/store"
-	versa_tree "versioned-state-database/tree"
+	"github.com/bnb-chain/versioned-state-database/store"
+
+	versaTree "github.com/bnb-chain/versioned-state-database/tree"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 )
 
 type VersaTrie struct {
-	trie versa_tree.Tree
+	trie versaTree.Tree
 }
 
-func OpenVersaTrie(version uint64, rootHash []byte) *VersaTrie {
-	t := versa_tree.OpenTree(common.Hash{}, version, rootHash, false, store.NewStore())
+func OpenVersaTrie(version int64, rootHash []byte) *VersaTrie {
+	store, _, _, err := store.Open("test-versa-trie", nil)
+	if err != nil {
+		panic(err.Error())
+	}
+	t := versaTree.OpenTree(common.Hash{}, version, rootHash, false, store)
 	return &VersaTrie{
 		trie: t,
 	}
@@ -37,7 +42,7 @@ func (p *VersaTrie) Delete(key []byte) error {
 }
 
 func (p *VersaTrie) Commit() (common.Hash, error) {
-	hash, _, _, err := p.trie.Commit(0)
+	hash, _, err := p.trie.Commit(0)
 	return hash, err
 }
 
