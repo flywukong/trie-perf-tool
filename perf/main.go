@@ -24,16 +24,17 @@ const (
 
 // PerfConfig struct to hold command line arguments
 type PerfConfig struct {
-	Engine       string
-	DataDir      string
-	BatchSize    uint64
-	NumJobs      int
-	KeyRange     uint64
-	MinValueSize uint64
-	MaxValueSize uint64
-	DeleteRatio  float64
-	MetricsAddr  string
-	MetricsPort  int
+	Engine          string
+	DataDir         string
+	BatchSize       uint64
+	NumJobs         int
+	KeyRange        uint64
+	MinValueSize    uint64
+	MaxValueSize    uint64
+	DeleteRatio     float64
+	MetricsAddr     string
+	MetricsPort     int
+	StorageTrieSize uint64
 }
 
 const version = "1.0.0"
@@ -119,6 +120,13 @@ func main() {
 				Usage:       "Number of threads",
 				Value:       10,
 				Destination: &config.NumJobs,
+			},
+			&cli.Uint64Flag{
+				Name:        "triesize",
+				Aliases:     []string{"t"},
+				Usage:       "storage trie size",
+				Value:       1000000,
+				Destination: &config.KeyRange,
 			},
 			&cli.Uint64Flag{
 				Name:        "key_range",
@@ -271,12 +279,14 @@ func parsePerfConfig(c *cli.Context) PerfConfig {
 	maxValueSize := c.Uint64("max_value_size")
 	minValueSize := c.Uint64("min_value_size")
 	deleteRatio := c.Float64("delete_ratio")
+	trieSize := c.Uint64("triesize")
 	return PerfConfig{
-		BatchSize:    batchSize,
-		NumJobs:      threadNum,
-		KeyRange:     keyRange,
-		MinValueSize: minValueSize,
-		MaxValueSize: maxValueSize,
-		DeleteRatio:  deleteRatio,
+		BatchSize:       batchSize,
+		NumJobs:         threadNum,
+		KeyRange:        keyRange,
+		MinValueSize:    minValueSize,
+		MaxValueSize:    maxValueSize,
+		DeleteRatio:     deleteRatio,
+		StorageTrieSize: trieSize,
 	}
 }

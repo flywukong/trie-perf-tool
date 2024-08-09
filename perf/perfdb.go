@@ -111,12 +111,13 @@ func (d *DBRunner) generateInitStorageTasks() DBTask {
 		copy(CAAccount[i][:], data)
 	}
 
+	StorageInitSize := d.perfConfig.StorageTrieSize
 	for i := 0; i < len(CAAccount); i++ {
 		ownerHash := string(crypto.Keccak256(CAAccount[i][:]))
 
-		keys := make([]string, 0, CAStorageInitSize)
-		vals := make([]string, 0, CAStorageInitSize)
-		for j := 0; j < CAStorageInitSize; j++ {
+		keys := make([]string, 0, StorageInitSize)
+		vals := make([]string, 0, StorageInitSize)
+		for j := uint64(0); j < StorageInitSize; j++ {
 			randomStr := generateValue(32, 32)
 			value := generateValue(7, 16)
 			keys = append(keys, string(randomStr))
@@ -126,7 +127,7 @@ func (d *DBRunner) generateInitStorageTasks() DBTask {
 			Keys: keys, Vals: vals}
 
 		// cache the inserted key for updating test
-		d.storageCache[ownerHash] = keys[CAStorageInitSize/2 : CAStorageInitSize/2+10000]
+		d.storageCache[ownerHash] = keys[StorageInitSize/2 : StorageInitSize/2+10000]
 		d.ownerCache.Add(ownerHash)
 	}
 
