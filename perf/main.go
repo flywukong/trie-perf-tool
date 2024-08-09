@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
@@ -213,7 +214,7 @@ func runPerfDB(c *cli.Context) error {
 	exp.Setup(address)
 
 	//http.HandleFunc("/debug/pprof/heap", pprof.Index)
-	//http.ListenAndServe(":80", nil)
+	http.ListenAndServe(":6061", nil)
 
 	go metrics.CollectProcessMetrics(3 * time.Second)
 	runner.Run(ctx)
