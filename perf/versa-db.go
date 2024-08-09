@@ -94,6 +94,7 @@ func (v *VersaDBRunner) makeStorageTrie(owner common.Hash, keys []string, vals [
 
 	v.lock.Lock()
 	v.ownerStorageCache[owner] = tHandler
+	fmt.Println("owner cache size", "size", len(v.ownerStorageCache))
 	v.lock.Unlock()
 	return hash
 }
@@ -105,6 +106,7 @@ func (v *VersaDBRunner) GetStorage(owner []byte, key []byte) ([]byte, error) {
 	v.lock.RUnlock()
 
 	if !found {
+		fmt.Println("fail to get storage hanlder in cache")
 		versionNum, encodedData, err := v.db.Get(v.rootTree, owner)
 		if err != nil {
 			return nil, err
