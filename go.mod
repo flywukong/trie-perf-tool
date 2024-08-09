@@ -8,7 +8,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.1
 	github.com/urfave/cli/v2 v2.26.0
 	golang.org/x/crypto v0.25.0
-	versioned-state-database v0.0.0-20240725084852-1ac26582ef72
+	github.com/bnb-chain/versioned-state-database v0.0.0-20240809034306-df617c66a719
 )
 
 require (
@@ -16,6 +16,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.11.0 // indirect
+	github.com/bnb-chain/versioned-state-database v0.0.0-20240809034306-df617c66a719 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cockroachdb/errors v1.11.1 // indirect
@@ -85,5 +86,4 @@ replace (
 	github.com/grpc-ecosystem/grpc-gateway/v2 => github.com/prysmaticlabs/grpc-gateway/v2 v2.3.1-0.20210702154020-550e1cd83ec1
 	github.com/syndtr/goleveldb v1.0.1 => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.16
-	versioned-state-database => github.com/bnb-chain/versioned-state-database v0.0.0-20240808091126-4db61258915a
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	versa_db "versioned-state-database"
+	VersaDB "github.com/bnb-chain/versioned-state-database"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -15,9 +15,9 @@ import (
 )
 
 type VersaDBRunner struct {
-	db                *versa_db.VersaDB
-	stateHandler      versa_db.StateHandler
-	rootTree          versa_db.TreeHandler
+	db                *VersaDB.VersaDB
+	stateHandler      VersaDB.StateHandler
+	rootTree          VersaDB.TreeHandler
 	version           int64
 	stateRoot         common.Hash
 	ownerStorageCache map[common.Hash]StorageCache
@@ -30,14 +30,14 @@ type StorageCache struct {
 }
 
 func OpenVersaDB(path string, version int64) *VersaDBRunner {
-	db, err := versa_db.NewVersaDB(path, &versa_db.VersaDBConfig{
+	db, err := VersaDB.NewVersaDB(path, &VersaDB.VersaDBConfig{
 		FlushInterval:  200,
 		MaxStatesInMem: 128,
 	})
 	if err != nil {
 		panic(err)
 	}
-	stateHanlder, err := db.OpenState(version, ethTypes.EmptyRootHash, versa_db.S_COMMIT)
+	stateHanlder, err := db.OpenState(version, ethTypes.EmptyRootHash, VersaDB.S_COMMIT)
 	if err != nil {
 		panic(err)
 	}
@@ -143,7 +143,7 @@ func (v *VersaDBRunner) Commit() (common.Hash, error) {
 
 	v.version++
 	v.stateRoot = hash
-	v.stateHandler, err = v.db.OpenState(v.version, hash, versa_db.S_COMMIT)
+	v.stateHandler, err = v.db.OpenState(v.version, hash, VersaDB.S_COMMIT)
 	if err != nil {
 		log.Info("open state err" + err.Error())
 		return ethTypes.EmptyRootHash, err

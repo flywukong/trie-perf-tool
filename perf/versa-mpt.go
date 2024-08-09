@@ -1,8 +1,9 @@
 package main
 
 import (
-	"versioned-state-database/store"
-	versa_tree "versioned-state-database/tree"
+	"github.com/bnb-chain/versioned-state-database/store"
+
+	versa_tree "github.com/bnb-chain/versioned-state-database/tree"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
