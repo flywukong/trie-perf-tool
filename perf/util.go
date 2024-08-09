@@ -23,7 +23,7 @@ const (
 	CAStorageSize      = 100
 	CAStorageUpdateNum = 100
 	CAStorageTrieNum   = 10
-	CAStorageInitSize  = 1000000
+	CAStorageInitSize  = 10000000
 )
 
 type DBTask map[string]CAKeyValue
