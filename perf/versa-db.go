@@ -95,7 +95,6 @@ func (v *VersaDBRunner) makeStorageTrie(owner common.Hash, keys []string, vals [
 	}
 
 	v.lock.Lock()
-	v.ownerHandlerCache[owner] = tHandler
 	v.ownerStorageCache[owner] = StorageCache{
 		version: v.version + 1,
 		stRoot:  hash,
@@ -109,22 +108,27 @@ func (v *VersaDBRunner) UpdateStorage(owner []byte, keys []string, values []stri
 	var err error
 	ownerHash := common.BytesToHash(owner)
 	var tHandler versa_db.TreeHandler
-	// try to get version and root from cache first
+
 	v.lock.RLock()
-	cache, exist := v.ownerStorageCache[ownerHash]
+	tHandler, found := v.ownerHandlerCache[ownerHash]
 	v.lock.RUnlock()
-	if !exist {
-		// todo
-	} else {
-		versionNum := cache.version
-		stRoot := cache.stRoot
-		tHandler, err = v.db.OpenTree(v.stateHandler, versionNum, ownerHash, stRoot)
-		if err != nil {
-			return fmt.Errorf("failed to open tree, version: %d, owner: %s, block height %d, err: %v", versionNum,
-				ownerHash.String(), v.version, err.Error())
+	if !found {
+		// try to get version and root from cache first
+		v.lock.RLock()
+		cache, exist := v.ownerStorageCache[ownerHash]
+		v.lock.RUnlock()
+		if !exist {
+			// todo
+		} else {
+			versionNum := cache.version
+			stRoot := cache.stRoot
+			tHandler, err = v.db.OpenTree(v.stateHandler, versionNum, ownerHash, stRoot)
+			if err != nil {
+				return fmt.Errorf("failed to open tree, version: %d, owner: %s, block height %d, err: %v", versionNum,
+					ownerHash.String(), v.version, err.Error())
+			}
 		}
 	}
-
 	for i := 0; i < len(keys) && i < len(values); i++ {
 		err = v.db.Put(tHandler, []byte(keys[i]), []byte(values[i]))
 		if err != nil {
@@ -143,7 +147,6 @@ func (v *VersaDBRunner) UpdateStorage(owner []byte, keys []string, values []stri
 		stRoot:  hash,
 	}
 	// update the cache for read
-	v.ownerHandlerCache[ownerHash] = tHandler
 	v.lock.Unlock()
 
 	return nil
