@@ -292,11 +292,11 @@ func verifyHash(c *cli.Context) error {
 		panic("basic test fail")
 	}
 
-	verifyer := NewVerifyer(secureTrie, versaTrie, parsePerfConfig(c), 10)
+	verifier := NewVerifier(secureTrie, versaTrie, parsePerfConfig(c), 10)
 	ctx, cancel := context.WithTimeout(context.Background(), c.Duration("runtime"))
 	defer cancel()
-	fmt.Println("begin to verify root hash, the batch size of block is", verifyer.perfConfig.BatchSize)
-	verifyer.Run(ctx)
+	fmt.Println("begin to verify root hash, the batch size of block is", verifier.perfConfig.BatchSize)
+	verifier.Run(ctx)
 	return nil
 }
 

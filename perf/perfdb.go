@@ -27,25 +27,25 @@ type DBRunner struct {
 	initTaskChan          chan DBTask
 	accountKeyCache       *InsertedKeySet
 	smallStorageTrieCache *InsertedKeySet
-	//storageCache      *lru.Cache[string, []byte]
-	storageCache      map[string][]string
-	largeStorageCache map[string][]string
-	blockHeight       uint64
-	rwDuration        time.Duration
-	rDuration         time.Duration
-	wDuration         time.Duration
-	commitDuration    time.Duration
-	hashDuration      time.Duration
-	totalRwDurations  time.Duration // Accumulated rwDuration
-	totalReadCost     time.Duration
-	totalWriteCost    time.Duration
-	BlockCount        int64 // Number of rwDuration samples
-	totalHashurations time.Duration
-	updateAccount     int64
-	largeStorageTrie  []string
-	smallStorageTrie  []string
-	storageOwnerList  []string
-	owners            []common.Hash
+	// storageCache      *lru.Cache[string, []byte]
+	storageCache       map[string][]string
+	largeStorageCache  map[string][]string
+	blockHeight        uint64
+	rwDuration         time.Duration
+	rDuration          time.Duration
+	wDuration          time.Duration
+	commitDuration     time.Duration
+	hashDuration       time.Duration
+	totalRwDurations   time.Duration // Accumulated rwDuration
+	totalReadCost      time.Duration
+	totalWriteCost     time.Duration
+	BlockCount         int64 // Number of rwDuration samples
+	totalHashDurations time.Duration
+	updateAccount      int64
+	largeStorageTrie   []string
+	smallStorageTrie   []string
+	storageOwnerList   []string
+	owners             []common.Hash
 }
 
 func NewDBRunner(
@@ -232,11 +232,11 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			for i := 0; i < len(d.smallStorageTrie); i++ {
 				keys := make([]string, 0, storageUpdateNum)
 				vals := make([]string, 0, storageUpdateNum)
-				//owner := d.smallStorageTrie[i]
+				// owner := d.smallStorageTrie[i]
 				owner := d.storageOwnerList[i+2]
-				//fmt.Println("generate owner ", owner)
+				// fmt.Println("generate owner ", owner)
 				v := d.storageCache[owner]
-				//fmt.Println("small tree cache key len ", len(v))
+				// fmt.Println("small tree cache key len ", len(v))
 				for j := 0; j < storageUpdateNum; j++ {
 					// only cache 10000 for updating test
 					randomIndex := mathrand.Intn(len(v))
@@ -256,7 +256,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			//	k := d.largeStorageTrie[index]
 			k := d.storageOwnerList[index]
 			v := d.largeStorageCache[k]
-			//fmt.Println("large tree cache key len ", len(v))
+			// fmt.Println("large tree cache key len ", len(v))
 			keys := make([]string, 0, storageUpdateNum)
 			vals := make([]string, 0, storageUpdateNum)
 			for j := 0; j < largeStorageUpdateNum; j++ {
@@ -320,7 +320,7 @@ func (d *DBRunner) InitLargeStorageTasks(largeTrieIndex int) {
 
 func (d *DBRunner) InitSmallStorageTasks() []common.Hash {
 
-	//random := mathrand.New(mathrand.NewSource(0))
+	// random := mathrand.New(mathrand.NewSource(0))
 	smallTrees := make([]common.Hash, CAStorageTrieNum-2)
 	/*
 		CAAccount := make([][20]byte, CAStorageTrieNum-2)
@@ -396,14 +396,14 @@ func (r *DBRunner) runInternal(ctx context.Context) {
 				stateDBHashLatency.Update(r.hashDuration)
 			}
 
-			r.totalHashurations += r.hashDuration
+			r.totalHashDurations += r.hashDuration
 			// commit
-			commtStart := time.Now()
+			commitStart := time.Now()
 			if _, err := r.db.Commit(); err != nil {
 				panic("failed to commit: " + err.Error())
 			}
 
-			r.commitDuration = time.Since(commtStart)
+			r.commitDuration = time.Since(commitStart)
 			if r.db.GetMPTEngine() == VERSADBEngine {
 				VeraDBCommitLatency.Update(r.commitDuration)
 			} else {
@@ -437,7 +437,7 @@ func (r *DBRunner) printAVGStat(startTime time.Time) {
 		r.blockHeight,
 		float64(r.totalReadCost.Microseconds())/float64(r.blockHeight),
 		float64(r.totalWriteCost.Microseconds())/float64(r.blockHeight),
-		float64(r.totalHashurations.Milliseconds())/float64(r.blockHeight),
+		float64(r.totalHashDurations.Milliseconds())/float64(r.blockHeight),
 	)
 }
 
@@ -607,7 +607,7 @@ func (d *DBRunner) UpdateDB(
 
 	start = time.Now()
 
-	// simulate upadte small Storage Trie
+	// simulate update small Storage Trie
 	for key, value := range taskInfo.SmallStorageTask {
 		startPut := time.Now()
 		// add new storage

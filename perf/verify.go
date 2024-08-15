@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-type TrieVerifyer struct {
+type TrieVerifier struct {
 	verifyDB     TrieDatabase
 	baseDB       TrieDatabase
 	perfConfig   PerfConfig
@@ -22,23 +22,23 @@ type TrieVerifyer struct {
 	keyCache     *InsertedKeySet
 }
 
-func NewVerifyer(
+func NewVerifier(
 	baseDB TrieDatabase,
 	verifyDB TrieDatabase,
 	config PerfConfig,
 	taskBufferSize int, // Added a buffer size parameter for the task channel
-) *TrieVerifyer {
-	verifyer := &TrieVerifyer{
+) *TrieVerifier {
+	verifier := &TrieVerifier{
 		verifyDB:   verifyDB,
 		baseDB:     baseDB,
 		perfConfig: config,
 		taskChan:   make(chan map[string][]byte, taskBufferSize),
 		keyCache:   NewFixedSizeSet(1000000),
 	}
-	return verifyer
+	return verifier
 }
 
-func (v *TrieVerifyer) Run(ctx context.Context) {
+func (v *TrieVerifier) Run(ctx context.Context) {
 	defer close(v.taskChan)
 	// Start task generation thread
 	go generateTasks(ctx, v.taskChan, v.perfConfig.BatchSize)
@@ -63,7 +63,7 @@ func (v *TrieVerifyer) Run(ctx context.Context) {
 	}
 }
 
-func (v *TrieVerifyer) generateTasks(running *atomic.Bool) {
+func (v *TrieVerifier) generateTasks(running *atomic.Bool) {
 	for running.Load() {
 		taskMap := make(map[string][]byte)
 		address, acccounts := makeAccounts(int(v.perfConfig.BatchSize))
@@ -74,7 +74,7 @@ func (v *TrieVerifyer) generateTasks(running *atomic.Bool) {
 	}
 }
 
-func (v *TrieVerifyer) compareHashRoot(taskInfo map[string][]byte) {
+func (v *TrieVerifier) compareHashRoot(taskInfo map[string][]byte) {
 	expectRoot, verifyRoot := v.getRootHash(taskInfo)
 	v.blockHeight++
 	if expectRoot != verifyRoot {
@@ -87,7 +87,7 @@ func (v *TrieVerifyer) compareHashRoot(taskInfo map[string][]byte) {
 	}
 }
 
-func (v *TrieVerifyer) getRootHash(taskInfo map[string][]byte) (common.Hash, common.Hash) {
+func (v *TrieVerifier) getRootHash(taskInfo map[string][]byte) (common.Hash, common.Hash) {
 	// simulate insert and delete trie
 	for key, value := range taskInfo {
 		keyName := []byte(key)

@@ -13,23 +13,23 @@ import (
 )
 
 type Runner struct {
-	db                TrieDatabase
-	perfConfig        PerfConfig
-	stat              *Stat
-	lastStatInstant   time.Time
-	taskChan          chan map[string][]byte
-	keyCache          *InsertedKeySet
-	blockHeight       uint64
-	rwDuration        time.Duration
-	rDuration         time.Duration
-	wDuration         time.Duration
-	commitDuration    time.Duration
-	hashDuration      time.Duration
-	totalRwDurations  time.Duration // Accumulated rwDuration
-	totalReadCost     time.Duration
-	totalWriteCost    time.Duration
-	BlockCount        int64 // Number of rwDuration samples
-	totalHashurations time.Duration
+	db                 TrieDatabase
+	perfConfig         PerfConfig
+	stat               *Stat
+	lastStatInstant    time.Time
+	taskChan           chan map[string][]byte
+	keyCache           *InsertedKeySet
+	blockHeight        uint64
+	rwDuration         time.Duration
+	rDuration          time.Duration
+	wDuration          time.Duration
+	commitDuration     time.Duration
+	hashDuration       time.Duration
+	totalRwDurations   time.Duration // Accumulated rwDuration
+	totalReadCost      time.Duration
+	totalWriteCost     time.Duration
+	BlockCount         int64 // Number of rwDuration samples
+	totalHashDurations time.Duration
 }
 
 func NewRunner(
@@ -117,7 +117,7 @@ func (r *Runner) runInternal(ctx context.Context) {
 				stateTrieHashLatency.Update(r.hashDuration)
 			}
 
-			r.totalHashurations += r.hashDuration
+			r.totalHashDurations += r.hashDuration
 			// commit
 			commitStart := time.Now()
 			if r.db.GetMPTEngine() == PbssRawTrieEngine {
@@ -151,7 +151,7 @@ func (r *Runner) printAVGStat(startTime time.Time) {
 		r.blockHeight,
 		float64(r.totalReadCost.Microseconds())/float64(r.blockHeight),
 		float64(r.totalWriteCost.Microseconds())/float64(r.blockHeight),
-		float64(r.totalHashurations.Milliseconds())/float64(r.blockHeight),
+		float64(r.totalHashDurations.Milliseconds())/float64(r.blockHeight),
 	)
 }
 
