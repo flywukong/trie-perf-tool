@@ -719,14 +719,18 @@ func (d *DBRunner) InitSingleStorageTrie(
 
 	// cache the inserted key for updating test
 	if d.isLargeStorageTrie(key) {
-		if len(d.largeStorageCache[key]) < 1500000 {
+		if len(d.largeStorageCache[key]) < 500000 {
 			for i := 0; i < len(value.Keys)/500; i++ {
 				d.largeStorageCache[key] = append(d.largeStorageCache[key], value.Keys[i])
 			}
 		}
 		//	d.largeStorageCache[key] = value.Keys[StorageInitSize/100 : StorageInitSize/100+StorageInitSize/100]
 	} else {
-		d.storageCache[key] = value.Keys[smallStorageSize/2 : smallStorageSize/2+smallStorageSize/5]
+		if len(d.storageCache[key]) < 100000 {
+			for i := 0; i < len(value.Keys)/50; i++ {
+				d.storageCache[key] = append(d.storageCache[key], value.Keys[i])
+			}
+		}
 	}
 
 	if snapDB != nil {
