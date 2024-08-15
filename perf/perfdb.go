@@ -696,7 +696,7 @@ func (d *DBRunner) InitSingleStorageTrie(
 	value CAKeyValue,
 	firstInsert bool,
 ) {
-	smallStorageSize := d.perfConfig.StorageTrieSize / 100
+	//smallStorageSize := d.perfConfig.StorageTrieSize / 100
 	var snapDB ethdb.KeyValueStore
 	if d.db.GetMPTEngine() == StateTrieEngine && d.db.GetFlattenDB() != nil {
 		// simulate insert key to snap
