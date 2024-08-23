@@ -290,6 +290,9 @@ func (d *DBRunner) InitLargeStorageTrie(largeTrieIndex int) {
 	fmt.Printf("init large tree in %d blocks , trie size %d \n", blocks, StorageInitSize)
 	storageBatch := StorageInitSize / blocks
 	for i := uint64(0); i < d.perfConfig.TrieBlocks; i++ {
+		if i%500 == 0 {
+			fmt.Printf("finish init the  %d block of large trie \n", i)
+		}
 		vals := make([]string, 0, storageBatch)
 		for j := uint64(0); j < storageBatch; j++ {
 			value := generateValue(7, 16)
@@ -333,13 +336,13 @@ func (d *DBRunner) InitSmallStorageTrie() []common.Hash {
 		StorageInitSize = d.perfConfig.StorageTrieSize / 50
 	}
 
-	for i := 0; i < int(CATrieNum-LargeStorageTrieNum); i++ {
+	for i := 0; i < int(CATrieNum-LargeStorageTrieNum-44); i++ {
 		//	ownerHash := string(crypto.Keccak256(CAAccount[i][:]))
 		ownerHash := d.storageOwnerList[i+2]
 		d.smallStorageTrie[i] = ownerHash
 		d.owners[i+2] = common.BytesToHash([]byte(ownerHash))
 		smallTrees[i] = common.BytesToHash([]byte(ownerHash))
-		blocks := d.perfConfig.TrieBlocks / 10
+		blocks := d.perfConfig.TrieBlocks / 100
 
 		storageBatch := StorageInitSize / blocks
 		for t := uint64(0); t < blocks; t++ {
