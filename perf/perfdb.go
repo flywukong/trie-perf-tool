@@ -86,55 +86,56 @@ func (d *DBRunner) Run(ctx context.Context) {
 	if err != nil {
 		fmt.Printf("init account in %d blocks , account num %d \n", blocks, d.perfConfig.AccountsInitSize)
 
-		diskVersion := d.db.GetVersion()
-		fmt.Println("disk version is", diskVersion)
-		if diskVersion < 10 {
-			accSize := d.perfConfig.AccountsInitSize
-			accBatch := d.perfConfig.AccountsBlocks
-			accPerBatch := accSize / accBatch
+		/*
+			diskVersion := d.db.GetVersion()
+			fmt.Println("disk version is", diskVersion)
+			if diskVersion < 10 {
+				accSize := d.perfConfig.AccountsInitSize
+				accBatch := d.perfConfig.AccountsBlocks
+				accPerBatch := accSize / accBatch
 
-			for i := uint64(0); i < d.perfConfig.AccountsBlocks; i++ {
-				startIndex := uint64(i * accPerBatch)
-				d.InitAccount(i, startIndex, accPerBatch)
-				if i > 1 && i%20000 == 0 {
-					fmt.Println("running empty block for 5000 blocks")
-					for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
-						d.RunEmptyBlock(j)
+				for i := uint64(0); i < d.perfConfig.AccountsBlocks; i++ {
+					startIndex := uint64(i * accPerBatch)
+					d.InitAccount(i, startIndex, accPerBatch)
+					if i > 1 && i%20000 == 0 {
+						fmt.Println("running empty block for 5000 blocks")
+						for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
+							d.RunEmptyBlock(j)
+						}
+					}
+				}
+			} else {
+				fmt.Println("continue to press")
+				accSize := d.perfConfig.AccountsInitSize - uint64(diskVersion*1000)
+				accBatch := d.perfConfig.AccountsBlocks - uint64(diskVersion)
+				accPerBatch := accSize / accBatch
+
+				for i := uint64(0); i < accBatch; i++ {
+					startIndex := uint64(i * accPerBatch)
+					d.InitAccount(i+uint64(diskVersion), startIndex, accPerBatch)
+					if i > 1 && i%20000 == 0 {
+						fmt.Println("running empty block for 5000 blocks")
+						for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
+							d.RunEmptyBlock(j)
+						}
 					}
 				}
 			}
-		} else {
-			fmt.Println("continue to press")
-			accSize := d.perfConfig.AccountsInitSize - uint64(diskVersion*1000)
-			accBatch := d.perfConfig.AccountsBlocks - uint64(diskVersion)
-			accPerBatch := accSize / accBatch
 
-			for i := uint64(0); i < accBatch; i++ {
-				startIndex := uint64(i * accPerBatch)
-				d.InitAccount(i+uint64(diskVersion), startIndex, accPerBatch)
-				if i > 1 && i%20000 == 0 {
-					fmt.Println("running empty block for 5000 blocks")
-					for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
-						d.RunEmptyBlock(j)
-					}
-				}
+			// generate the storage owners, the first two owner is the large storage and
+			// the others are small trie
+			ownerList := genOwnerHashKey(CATrieNum)
+			for i := 0; i < CATrieNum; i++ {
+				d.storageOwnerList[i] = ownerList[i]
 			}
-		}
 
-		// generate the storage owners, the first two owner is the large storage and
-		// the others are small trie
-		ownerList := genOwnerHashKey(CATrieNum)
-		for i := 0; i < CATrieNum; i++ {
-			d.storageOwnerList[i] = ownerList[i]
-		}
+			fmt.Println("running empty locks")
+			for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
+				d.RunEmptyBlock(j)
+			}
 
-		fmt.Println("running empty locks")
-		for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
-			d.RunEmptyBlock(j)
-		}
-
-		d.InitLargeStorageTries()
-
+			d.InitLargeStorageTries()
+		*/
 		fmt.Println("init the second large trie finish")
 		smallTrees := d.InitSmallStorageTrie()
 		fmt.Println("init small trie finish")
