@@ -3,7 +3,7 @@ module mpt-perf
 go 1.21
 
 require (
-	github.com/bnb-chain/versioned-state-database v0.0.0-20240823025705-b58bd78e84a6
+	github.com/bnb-chain/versioned-state-database v0.0.0-00010101000000-000000000000
 	github.com/ethereum/go-ethereum v1.14.7
 	github.com/holiman/uint256 v1.3.0
 	github.com/pelletier/go-toml/v2 v2.0.5
@@ -81,6 +81,7 @@ require (
 )
 
 replace (
+	github.com/bnb-chain/versioned-state-database => ../versioned-state-database
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-cometbft v1.3.1
 	github.com/ethereum/go-ethereum v1.14.7 => github.com/bnb-chain/bsc v1.4.12
 	github.com/grpc-ecosystem/grpc-gateway/v2 => github.com/prysmaticlabs/grpc-gateway/v2 v2.3.1-0.20210702154020-550e1cd83ec1

@@ -478,7 +478,8 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 	}
 
 	commtStart := time.Now()
-	if _, err := r.db.Commit(); err != nil {
+	rootHash, err := r.db.Commit()
+	if err != nil {
 		panic("failed to commit: " + err.Error())
 	}
 
@@ -490,7 +491,7 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 	}
 
 	r.trySleep()
-	fmt.Println("init db account commit success, block number", blockNum)
+	fmt.Println("init db account commit success, block number: ", blockNum, ", root: ", rootHash.String())
 }
 
 func (r *DBRunner) RunEmptyBlock(index uint64) {
