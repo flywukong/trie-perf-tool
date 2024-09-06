@@ -153,14 +153,13 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 		d.largeStorageTrie[i] = owner
 		largeStorageInitSize := d.perfConfig.StorageTrieSize
 		randomIndex := mathrand.Intn(int(d.perfConfig.StorageTrieSize / 2))
-		/*
-			if i <= 1 {
-				d.largeStorageCache[owner] = genStorageTrieKeyV1(uint64(randomIndex), largeStorageInitSize/500)
-			} else {
-				d.storageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/500)
-			}
-		*/
-		d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/500)
+		if i <= 1 {
+			d.largeStorageCache[owner] = genStorageTrieKeyV1(uint64(randomIndex), largeStorageInitSize/500)
+		} else {
+			d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/500)
+		}
+
+		//	d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/500)
 		fmt.Println("load large tree owner hash", common.BytesToHash([]byte(owner)))
 	}
 
@@ -188,7 +187,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			return
 		default:
 			// update the source test data cache every 10000 blocks
-			if d.blockHeight%10000 == 0 && d.blockHeight > 0 {
+			if d.blockHeight%5000 == 0 && d.blockHeight > 0 {
 				d.updateCache(d.perfConfig.LargeTrieNum, d.perfConfig.StorageTrieNum)
 			}
 
