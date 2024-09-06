@@ -188,7 +188,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			return
 		default:
 			// update the source test data cache every 10000 blocks
-			if d.blockHeight%000 == 0 && d.blockHeight > 0 {
+			if d.blockHeight%2000 == 0 && d.blockHeight > 0 {
 				d.updateCache(d.perfConfig.LargeTrieNum, d.perfConfig.StorageTrieNum)
 			}
 
