@@ -144,6 +144,7 @@ func (d *DBRunner) Run(ctx context.Context) {
 	fmt.Println("init db finish, begin to press kv")
 	// Start task generation thread
 	go d.generateRunTasks(ctx, d.perfConfig.BatchSize)
+	time.Sleep(20 * time.Second)
 	d.runInternal(ctx)
 }
 
@@ -187,7 +188,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			return
 		default:
 			// update the source test data cache every 10000 blocks
-			if d.blockHeight%5000 == 0 && d.blockHeight > 0 {
+			if d.blockHeight%000 == 0 && d.blockHeight > 0 {
 				d.updateCache(d.perfConfig.LargeTrieNum, d.perfConfig.StorageTrieNum)
 			}
 
@@ -383,28 +384,35 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 		select {
 		case taskInfo := <-d.taskChan:
 			rwStart := time.Now()
+			startBlock := time.Now()
 			// read, put or delete keys
 			d.UpdateDB(taskInfo)
 			d.rwDuration = time.Since(rwStart)
 			d.totalRwDurations += d.rwDuration
 			// compute hash
-			hashStart := time.Now()
-			d.db.Hash()
-			d.hashDuration = time.Since(hashStart)
-			if d.db.GetMPTEngine() == VERSADBEngine {
-				VeraDBHashLatency.Update(d.hashDuration)
-			} else {
-				stateDBHashLatency.Update(d.hashDuration)
-			}
+			/*
+					hashStart := time.Now()
+					d.db.Hash()
+					d.hashDuration = time.Since(hashStart)
+					if d.db.GetMPTEngine() == VERSADBEngine {
+						VeraDBHashLatency.Update(d.hashDuration)
+					} else {
+						stateDBHashLatency.Update(d.hashDuration)
+					}
 
-			d.totalHashurations += d.hashDuration
+
+
+				d.totalHashurations += d.hashDuration
+			*/
 			// commit
+
 			commtStart := time.Now()
 			if _, err := d.db.Commit(); err != nil {
 				panic("failed to commit: " + err.Error())
 			}
 
 			d.commitDuration = time.Since(commtStart)
+			d.totalHashurations += d.commitDuration
 			if d.db.GetMPTEngine() == VERSADBEngine {
 				VeraDBCommitLatency.Update(d.commitDuration)
 			} else {
@@ -416,11 +424,14 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 			d.blockHeight++
 
 			if d.db.GetMPTEngine() == VERSADBEngine {
-				VeraDBImportLatency.Update(time.Since(rwStart))
+				VeraDBImportLatency.Update(time.Since(startBlock))
 			} else {
-				stateDBImportLatency.Update(time.Since(rwStart))
+				stateDBImportLatency.Update(time.Since(startBlock))
 			}
 
+			if d.blockHeight%100 == 0 {
+				fmt.Println("import block latency:", time.Since(startBlock).Milliseconds(), "ms")
+			}
 			d.updateAccount = 0
 			BlockHeight.Update(int64(d.blockHeight))
 		case <-ticker.C:
@@ -440,11 +451,11 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 
 func (r *DBRunner) printAVGStat(startTime time.Time) {
 	fmt.Printf(
-		" Avg Perf metrics: %s, block height=%d elapsed: [read =%v us, write=%v ms, cal hash=%v us]\n",
+		" Avg Perf metrics: %s, block height=%d elapsed: [read =%v ms, write=%v ms, commit =%v ms]\n",
 		r.stat.CalcAverageIOStat(time.Since(startTime)),
 		r.blockHeight,
-		float64(r.totalReadCost.Microseconds())/float64(r.blockHeight),
-		float64(r.totalWriteCost.Microseconds())/float64(r.blockHeight),
+		float64(r.totalReadCost.Milliseconds())/float64(r.blockHeight),
+		float64(r.totalWriteCost.Milliseconds())/float64(r.blockHeight),
 		float64(r.totalHashurations.Milliseconds())/float64(r.blockHeight),
 	)
 }
