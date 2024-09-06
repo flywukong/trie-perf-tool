@@ -294,7 +294,7 @@ func runPerfDB(c *cli.Context) error {
 		dir, _ := os.Getwd()
 		stateDB = NewStateRunner(filepath.Join(dir, "state-trie-dir"), types.EmptyRootHash)
 	}
-	runner := NewDBRunner(stateDB, parsePerfConfig(c), 1000)
+	runner := NewDBRunner(stateDB, parsePerfConfig(c), 2000)
 	ctx, cancel := context.WithTimeout(context.Background(), c.Duration("runtime"))
 	defer cancel()
 

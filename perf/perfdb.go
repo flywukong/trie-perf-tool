@@ -34,6 +34,7 @@ type DBRunner struct {
 	commitDuration        time.Duration
 	hashDuration          time.Duration
 	totalRwDurations      time.Duration // Accumulated rwDuration
+	totalBlockDurations   time.Duration
 	totalReadCost         time.Duration
 	totalWriteCost        time.Duration
 	BlockCount            int64 // Number of rwDuration samples
@@ -144,24 +145,40 @@ func (d *DBRunner) Run(ctx context.Context) {
 	fmt.Println("init db finish, begin to press kv")
 	// Start task generation thread
 	go d.generateRunTasks(ctx, d.perfConfig.BatchSize)
+	time.Sleep(20 * time.Second)
 	d.runInternal(ctx)
 }
 
 func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
+	startUpdate := time.Now()
+	defer func() {
+		fmt.Println("update cache cost time", time.Since(startUpdate).Milliseconds(), "ms")
+	}()
 	for i := uint64(0); i < largeTrieNum; i++ {
 		owner := d.storageOwnerList[i]
 		d.largeStorageTrie[i] = owner
 		largeStorageInitSize := d.perfConfig.StorageTrieSize
-		randomIndex := mathrand.Intn(int(d.perfConfig.StorageTrieSize / 2))
-		/*
-			if i <= 1 {
-				d.largeStorageCache[owner] = genStorageTrieKeyV1(uint64(randomIndex), largeStorageInitSize/500)
-			} else {
-				d.storageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/500)
-			}
-		*/
-		d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/500)
-		fmt.Println("load large tree owner hash", common.BytesToHash([]byte(owner)))
+
+		index := mathrand.Intn(5) // 0 到 4
+		// 计算取值范围的起始和结束位置
+		startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)     // 当前区间的开始
+		endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1)) // 下一区间的开始
+
+		// 取中间随机数
+		middleRangeStart := startRange + (endRange-startRange)/4 // 区间中间起点
+		middleRangeEnd := endRange - (endRange-startRange)/4     // 区间中间终点
+
+		// 在区间中间随机选择一个位置
+		randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+
+		if i <= 1 {
+			d.largeStorageCache[owner] = genStorageTrieKeyV1(uint64(randomIndex), largeStorageInitSize/500)
+		} else {
+			d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/500)
+		}
+
+		//	d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/500)
+		//	fmt.Println("load large tree owner hash", common.BytesToHash([]byte(owner)))
 	}
 
 	for i := uint64(0); i < totalTrieNum-largeTrieNum; i++ {
@@ -169,9 +186,20 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 		d.smallStorageTrieCache.Add(owner)
 		d.smallStorageTrie[i] = string(owner)
 		smallStorageInitSize := d.perfConfig.SmallStorageSize
-		randomIndex := mathrand.Intn(int(smallStorageInitSize / 2))
+
+		index := mathrand.Intn(5)                                         // 0 到 4
+		startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)     // 当前区间的开始
+		endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1)) // 下一区间的开始
+
+		// 取中间随机数
+		middleRangeStart := startRange + (endRange-startRange)/4 // 区间中间起点
+		middleRangeEnd := endRange - (endRange-startRange)/4     // 区间中间终点
+
+		// 在区间中间随机选择一个位置
+		randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+
 		d.storageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), smallStorageInitSize/500)
-		fmt.Println("load small tree owner hash", common.BytesToHash([]byte(owner)))
+		//	fmt.Println("load small tree owner hash", common.BytesToHash([]byte(owner)))
 	}
 
 	// init the account key cache
@@ -187,36 +215,46 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 		case <-ctx.Done():
 			return
 		default:
+			startUpdate := time.Now()
+			defer func() {
+				fmt.Println("generate task cost time:", time.Since(startUpdate).Milliseconds(), "ms")
+			}()
 			// update the source test data cache every 10000 blocks
-			if d.blockHeight%10000 == 0 && d.blockHeight > 0 {
+			if d.blockHeight%5000 == 0 && d.blockHeight > 0 {
 				d.updateCache(d.perfConfig.LargeTrieNum, d.perfConfig.StorageTrieNum)
 			}
 
 			taskMap := NewDBTask()
-			random := mathrand.New(mathrand.NewSource(0))
-			updateAccounts := int(batchSize) / 5
-			accounts := make([][]byte, updateAccounts)
-			for i := 0; i < updateAccounts; i++ {
-				var (
-					nonce = uint64(random.Int63())
-					root  = types.EmptyRootHash
-					code  = crypto.Keccak256(generateRandomBytes(20))
-				)
-				numBytes := random.Uint32() % 33 // [0, 32] bytes
-				balanceBytes := make([]byte, numBytes)
-				random.Read(balanceBytes)
-				balance := new(uint256.Int).SetBytes(balanceBytes)
-				data, _ := rlp.EncodeToBytes(&types.StateAccount{Nonce: nonce, Balance: balance, Root: root, CodeHash: code})
-				accounts[i] = data
-			}
+			var wg sync.WaitGroup
 
-			for i := 0; i < updateAccounts; i++ {
-				randomKey, found := d.accountKeyCache.RandomItem()
-				if found {
-					// update the account
-					taskMap.AccountTask[randomKey] = accounts[i]
+			wg.Add(1)
+			go func(task *DBTask) {
+				defer wg.Done()
+				random := mathrand.New(mathrand.NewSource(0))
+				updateAccounts := int(batchSize) / 5
+				accounts := make([][]byte, updateAccounts)
+				for i := 0; i < updateAccounts; i++ {
+					var (
+						nonce = uint64(random.Int63())
+						root  = types.EmptyRootHash
+						code  = crypto.Keccak256(generateRandomBytes(20))
+					)
+					numBytes := random.Uint32() % 33 // [0, 32] bytes
+					balanceBytes := make([]byte, numBytes)
+					random.Read(balanceBytes)
+					balance := new(uint256.Int).SetBytes(balanceBytes)
+					data, _ := rlp.EncodeToBytes(&types.StateAccount{Nonce: nonce, Balance: balance, Root: root, CodeHash: code})
+					accounts[i] = data
 				}
-			}
+
+				for i := 0; i < updateAccounts; i++ {
+					randomKey, found := d.accountKeyCache.RandomItem()
+					if found {
+						// update the account
+						taskMap.AccountTask[randomKey] = accounts[i]
+					}
+				}
+			}(&taskMap)
 
 			min_value_size := d.perfConfig.MinValueSize
 			max_value_size := d.perfConfig.MaxValueSize
@@ -384,32 +422,44 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 		select {
 		case taskInfo := <-d.taskChan:
 			rwStart := time.Now()
+			startBlock := time.Now()
 			// read, put or delete keys
 			d.UpdateDB(taskInfo)
 			d.rwDuration = time.Since(rwStart)
 			d.totalRwDurations += d.rwDuration
-			// compute hash
-			hashStart := time.Now()
-			d.db.Hash()
-			d.hashDuration = time.Since(hashStart)
 			if d.db.GetMPTEngine() == VERSADBEngine {
-				VeraDBHashLatency.Update(d.hashDuration)
+				VeraDBRWLatency.Update(d.rwDuration)
 			} else {
-				stateDBHashLatency.Update(d.hashDuration)
+				stateDBRWLatency.Update(d.rwDuration)
 			}
-
-			d.totalHashurations += d.hashDuration
+			// compute hash
+			/*
+					hashStart := time.Now()
+					d.db.Hash()
+					d.hashDuration = time.Since(hashStart)
+					if d.db.GetMPTEngine() == VERSADBEngine {
+						VeraDBHashLatency.Update(d.hashDuration)
+					} else {
+						stateDBHashLatency.Update(d.hashDuration)
+					}
+				d.totalHashurations += d.hashDuration
+			*/
 			// commit
+
 			commtStart := time.Now()
 			if _, err := d.db.Commit(); err != nil {
 				panic("failed to commit: " + err.Error())
 			}
 
 			d.commitDuration = time.Since(commtStart)
+			d.totalHashurations += d.commitDuration
 			if d.db.GetMPTEngine() == VERSADBEngine {
 				VeraDBCommitLatency.Update(d.commitDuration)
 			} else {
 				stateDBCommitLatency.Update(d.commitDuration)
+			}
+			if d.commitDuration.Milliseconds() > 600 {
+				fmt.Println("commit cost", d.commitDuration.Milliseconds(), "ms", ", block height:", d.blockHeight)
 			}
 
 			// sleep 500ms for each block
@@ -417,11 +467,21 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 			d.blockHeight++
 
 			if d.db.GetMPTEngine() == VERSADBEngine {
-				VeraDBImportLatency.Update(time.Since(rwStart))
+				VeraDBImportLatency.Update(time.Since(startBlock))
 			} else {
-				stateDBImportLatency.Update(time.Since(rwStart))
+				stateDBImportLatency.Update(time.Since(startBlock))
 			}
+			d.totalBlockDurations += time.Since(startBlock)
 
+			if d.blockHeight%100 == 0 {
+				fmt.Println("import block latency:", time.Since(startBlock).Milliseconds(), "ms",
+					"rw time ", d.rwDuration.Milliseconds(), "ms",
+					"read time", d.rDuration.Milliseconds(), "ms",
+					"write time", d.wDuration.Milliseconds(), "ms",
+					"commit time", d.commitDuration.Milliseconds(), "ms",
+					"total cost", d.totalBlockDurations.Seconds(), "s",
+					"block height", d.blockHeight)
+			}
 			d.updateAccount = 0
 			BlockHeight.Update(int64(d.blockHeight))
 		case <-ticker.C:
@@ -441,11 +501,11 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 
 func (r *DBRunner) printAVGStat(startTime time.Time) {
 	fmt.Printf(
-		" Avg Perf metrics: %s, block height=%d elapsed: [read =%v us, write=%v ms, cal hash=%v us]\n",
+		" Avg Perf metrics: %s, block height=%d elapsed: [read =%v ms, write=%v ms, commit =%v ms]\n",
 		r.stat.CalcAverageIOStat(time.Since(startTime)),
 		r.blockHeight,
-		float64(r.totalReadCost.Microseconds())/float64(r.blockHeight),
-		float64(r.totalWriteCost.Microseconds())/float64(r.blockHeight),
+		float64(r.totalReadCost.Milliseconds())/float64(r.blockHeight),
+		float64(r.totalWriteCost.Milliseconds())/float64(r.blockHeight),
 		float64(r.totalHashurations.Milliseconds())/float64(r.blockHeight),
 	)
 }
