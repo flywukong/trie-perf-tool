@@ -138,7 +138,7 @@ func (d *DBRunner) Run(ctx context.Context) {
 		d.updateCache(uint64(largeTrieNum), uint64(totalTrieNum))
 		d.db.InitStorage(d.owners, totalTrieNum+MaxLargeStorageTrieNum)
 		// repair the snapshot of state db
-		d.db.RepairSnap(d.storageOwnerList)
+		d.db.RepairSnap(d.storageOwnerList, int(d.perfConfig.LargeTrieNum))
 	}
 
 	fmt.Println("init db finish, begin to press kv")

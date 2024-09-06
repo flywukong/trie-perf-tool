@@ -48,7 +48,7 @@ type StateDatabase interface {
 
 	InitStorage(owners []common.Hash, trieNum int)
 
-	RepairSnap(owners []string)
+	RepairSnap(owners []string, trieNum int)
 
 	GetVersion() int64
 }

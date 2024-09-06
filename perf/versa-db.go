@@ -376,7 +376,7 @@ func (v *VersaDBRunner) GetFlattenDB() ethdb.KeyValueStore {
 	return nil
 }
 
-func (v *VersaDBRunner) RepairSnap(owners []string) {
+func (v *VersaDBRunner) RepairSnap(owners []string, trieNum int) {
 	return
 }
 

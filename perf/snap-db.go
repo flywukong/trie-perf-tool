@@ -249,8 +249,8 @@ func (s *StateDBRunner) UpdateStorage(owner []byte, keys []string, vals []string
 	return root, err
 }
 
-func (s *StateDBRunner) RepairSnap(owners []string) {
-	for i := 0; i < 2; i++ {
+func (s *StateDBRunner) RepairSnap(owners []string, largeTrieNum int) {
+	for i := 0; i < largeTrieNum; i++ {
 		encodedData, err := s.GetAccountFromTrie(owners[i])
 		if err != nil {
 			panic("fail to repair snap" + err.Error())
