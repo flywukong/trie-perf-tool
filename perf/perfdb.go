@@ -476,6 +476,8 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 			if d.blockHeight%100 == 0 {
 				fmt.Println("import block latency:", time.Since(startBlock).Milliseconds(), "ms",
 					"rw time ", d.rwDuration.Milliseconds(), "ms",
+					"read time", d.rDuration.Milliseconds(), "ms",
+					"write time", d.wDuration.Milliseconds(), "ms",
 					"commit time", d.commitDuration.Milliseconds(), "ms",
 					"total cost", d.totalBlockDurations.Seconds(), "s",
 					"block height", d.blockHeight)
