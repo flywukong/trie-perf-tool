@@ -13,6 +13,9 @@ var (
 	stateDBCommitLatency = metrics.NewRegisteredTimer("statedb/commit/latency", nil)
 	VeraDBCommitLatency  = metrics.NewRegisteredTimer("veradb/commit/latency", nil)
 
+	stateDBRWLatency = metrics.NewRegisteredTimer("statedb/rw/latency", nil)
+	VeraDBRWLatency  = metrics.NewRegisteredTimer("veradb/rw/latency", nil)
+
 	stateDBImportLatency = metrics.NewRegisteredTimer("statedb/import/latency", nil)
 	VeraDBImportLatency  = metrics.NewRegisteredTimer("veradb/import/latency", nil)
 

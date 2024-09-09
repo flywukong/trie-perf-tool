@@ -34,6 +34,7 @@ type DBRunner struct {
 	commitDuration        time.Duration
 	hashDuration          time.Duration
 	totalRwDurations      time.Duration // Accumulated rwDuration
+	totalBlockDurations   time.Duration
 	totalReadCost         time.Duration
 	totalWriteCost        time.Duration
 	BlockCount            int64 // Number of rwDuration samples
@@ -426,6 +427,11 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 			d.UpdateDB(taskInfo)
 			d.rwDuration = time.Since(rwStart)
 			d.totalRwDurations += d.rwDuration
+			if d.db.GetMPTEngine() == VERSADBEngine {
+				VeraDBRWLatency.Update(d.rwDuration)
+			} else {
+				stateDBRWLatency.Update(d.rwDuration)
+			}
 			// compute hash
 			/*
 					hashStart := time.Now()
@@ -452,11 +458,12 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 			} else {
 				stateDBCommitLatency.Update(d.commitDuration)
 			}
+			if d.commitDuration.Milliseconds() > 600 {
+				fmt.Println("commit cost", d.commitDuration.Milliseconds(), "ms", ", block height:", d.blockHeight)
+			}
 
 			// sleep 500ms for each block
-			startSleep := time.Now()
 			d.trySleep()
-			sleepCost := time.Since(startSleep)
 			d.blockHeight++
 
 			if d.db.GetMPTEngine() == VERSADBEngine {
@@ -464,12 +471,14 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 			} else {
 				stateDBImportLatency.Update(time.Since(startBlock))
 			}
+			d.totalBlockDurations += time.Since(startBlock)
 
 			if d.blockHeight%100 == 0 {
 				fmt.Println("import block latency:", time.Since(startBlock).Milliseconds(), "ms",
 					"rw time ", d.rwDuration.Milliseconds(), "ms",
 					"commit time", d.commitDuration.Milliseconds(), "ms",
-					"sleep", sleepCost.Milliseconds(), "ms")
+					"total cost", d.totalBlockDurations.Seconds(), "s",
+					"block height", d.blockHeight)
 			}
 			d.updateAccount = 0
 			BlockHeight.Update(int64(d.blockHeight))
