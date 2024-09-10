@@ -123,7 +123,7 @@ func (d *DBRunner) Run(ctx context.Context) {
 
 		*/
 		// init the lock of each tree
-
+		d.db.RepairSnap(d.storageOwnerList, int(d.perfConfig.LargeTrieNum))
 		d.InitLargeStorageTries()
 		fmt.Println("init the large tries finish")
 
