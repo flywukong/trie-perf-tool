@@ -786,11 +786,13 @@ func (d *DBRunner) UpdateDB(
 
 	go func() {
 		defer wg.Done()
-		for key, value := range taskInfo.AccountTask {
-			// add new account
-			accHash := common.BytesToHash([]byte(key))
-			rawdb.WriteAccountSnapshot(snapDB, accHash, value)
-			cache.Set(accHash[:], value)
+		if d.db.GetMPTEngine() == StateTrieEngine && snapDB != nil && cache != nil {
+			for key, value := range taskInfo.AccountTask {
+				// add new account
+				accHash := common.BytesToHash([]byte(key))
+				rawdb.WriteAccountSnapshot(snapDB, accHash, value)
+				cache.Set(accHash[:], value)
+			}
 		}
 	}()
 
