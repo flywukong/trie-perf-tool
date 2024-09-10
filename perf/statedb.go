@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/VictoriaMetrics/fastcache"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 )
@@ -51,6 +52,8 @@ type StateDatabase interface {
 	RepairSnap(owners []string, trieNum int)
 
 	GetVersion() int64
+
+	GetCache() *fastcache.Cache
 }
 
 type TrieBatch interface {

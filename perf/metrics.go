@@ -46,6 +46,11 @@ var (
 	VeraDBGetTps  = metrics.NewRegisteredGauge("veradb/get/tps", nil)
 	VeraDBPutTps  = metrics.NewRegisteredGauge("veradb/put/tps", nil)
 
-	failGetCount   = metrics.NewRegisteredCounter("db/get/fail", nil)
-	failWriteCount = metrics.NewRegisteredCounter("db/put/fail", nil)
+	failGetCount                  = metrics.NewRegisteredCounter("db/get/fail", nil)
+	failWriteCount                = metrics.NewRegisteredCounter("db/put/fail", nil)
+	snapshotCleanAccountHitMeter  = metrics.NewRegisteredMeter("state/snapshot/account/hit", nil)
+	snapshotCleanAccountMissMeter = metrics.NewRegisteredMeter("state/snapshot/account/miss", nil)
+
+	snapshotCleanStorageHitMeter  = metrics.NewRegisteredMeter("state/snapshot/storage/hit", nil)
+	snapshotCleanStorageMissMeter = metrics.NewRegisteredMeter("state/snapshot/storage/miss", nil)
 )

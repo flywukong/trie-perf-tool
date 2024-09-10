@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/VictoriaMetrics/fastcache"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -35,6 +36,7 @@ type StateDBRunner struct {
 	lock                  sync.RWMutex
 	trieCacheLock         sync.RWMutex
 	ownerStorageTrieCache map[common.Hash]*trie.StateTrie
+	cache                 *fastcache.Cache
 }
 
 func NewStateRunner(datadir string, root common.Hash) *StateDBRunner {
@@ -73,6 +75,7 @@ func NewStateRunner(datadir string, root common.Hash) *StateDBRunner {
 		ownerStorageTrieCache: make(map[common.Hash]*trie.StateTrie),
 		triediskdb:            triediskdb,
 		stateRoot:             diskRoot,
+		cache:                 fastcache.New(1024 * 1024 * 1024),
 	}
 
 	// Initialize with 2 random elements
@@ -111,13 +114,19 @@ func randBytes(n int) []byte {
 	return b
 }
 
-func (v *StateDBRunner) AddAccount(acckey string, val []byte) error {
-	v.accTrie.MustUpdate([]byte(acckey), val)
+func (s *StateDBRunner) AddAccount(acckey string, val []byte) error {
+	s.accTrie.MustUpdate([]byte(acckey), val)
 	return nil
 }
 
-func (v *StateDBRunner) GetAccount(acckey string) ([]byte, error) {
-	return rawdb.ReadAccountSnapshot(v.diskdb, common.BytesToHash([]byte(acckey))), nil
+func (s *StateDBRunner) GetAccount(acckey string) ([]byte, error) {
+	accHash := common.BytesToHash([]byte(acckey))
+	if blob, found := s.cache.HasGet(nil, accHash[:]); found {
+		snapshotCleanAccountHitMeter.Mark(1)
+		return blob, nil
+	}
+	snapshotCleanAccountMissMeter.Mark(1)
+	return rawdb.ReadAccountSnapshot(s.diskdb, accHash), nil
 }
 
 func (v *StateDBRunner) GetAccountFromTrie(acckey string) ([]byte, error) {
@@ -174,7 +183,16 @@ func (v *StateDBRunner) makeStorageTrie(owner common.Hash, keys []string, vals [
 }
 
 func (s *StateDBRunner) GetStorage(owner []byte, key []byte) ([]byte, error) {
-	return rawdb.ReadStorageSnapshot(s.diskdb, common.BytesToHash(owner), hashData(key)), nil
+	accHash := common.BytesToHash(owner)
+	storageHash := hashData(key)
+	cachekey := append(accHash[:], storageHash[:]...)
+	// Try to retrieve the storage slot from the memory cache
+	if blob, found := s.cache.HasGet(nil, cachekey); found {
+		snapshotCleanStorageHitMeter.Mark(1)
+		return blob, nil
+	}
+	snapshotCleanStorageMissMeter.Mark(1)
+	return rawdb.ReadStorageSnapshot(s.diskdb, accHash, storageHash), nil
 }
 
 // UpdateStorage  update batch k,v of storage trie
@@ -350,4 +368,8 @@ func (p *StateDBRunner) GetFlattenDB() ethdb.KeyValueStore {
 
 func (s *StateDBRunner) GetVersion() int64 {
 	return -1
+}
+
+func (s *StateDBRunner) GetCache() *fastcache.Cache {
+	return s.cache
 }

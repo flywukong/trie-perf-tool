@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/VictoriaMetrics/fastcache"
 	versaDB "github.com/bnb-chain/versioned-state-database"
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -382,4 +383,8 @@ func (v *VersaDBRunner) RepairSnap(owners []string, trieNum int) {
 
 func (v *VersaDBRunner) GetVersion() int64 {
 	return v.diskVersion
+}
+
+func (v *VersaDBRunner) GetCache() *fastcache.Cache {
+	return nil
 }
