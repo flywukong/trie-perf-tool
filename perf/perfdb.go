@@ -358,7 +358,7 @@ func (d *DBRunner) InitLargeStorageTrie(largeTrieIndex int) {
 
 func (d *DBRunner) InitLargeStorageTries() {
 	largeTrieNum := int(d.perfConfig.LargeTrieNum)
-	for i := 0; i < largeTrieNum; i++ {
+	for i := 0; i < largeTrieNum-2; i++ {
 		d.InitLargeStorageTrie(i)
 		fmt.Printf("init the  %d large trie success \n", i+1)
 		for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
