@@ -123,7 +123,7 @@ func (d *DBRunner) Run(ctx context.Context) {
 
 		*/
 		// init the lock of each tree
-		d.db.InitStorage(d.owners, totalTrieNum+MaxLargeStorageTrieNum)
+
 		d.InitLargeStorageTries()
 		fmt.Println("init the large tries finish")
 
@@ -237,36 +237,30 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			}
 
 			taskMap := NewDBTask()
-			var wg sync.WaitGroup
+			random := mathrand.New(mathrand.NewSource(0))
+			updateAccounts := int(batchSize) / 5
+			accounts := make([][]byte, updateAccounts)
+			for i := 0; i < updateAccounts; i++ {
+				var (
+					nonce = uint64(random.Int63())
+					root  = types.EmptyRootHash
+					code  = crypto.Keccak256(generateRandomBytes(20))
+				)
+				numBytes := random.Uint32() % 33 // [0, 32] bytes
+				balanceBytes := make([]byte, numBytes)
+				random.Read(balanceBytes)
+				balance := new(uint256.Int).SetBytes(balanceBytes)
+				data, _ := rlp.EncodeToBytes(&types.StateAccount{Nonce: nonce, Balance: balance, Root: root, CodeHash: code})
+				accounts[i] = data
+			}
 
-			wg.Add(1)
-			go func(task *DBTask) {
-				defer wg.Done()
-				random := mathrand.New(mathrand.NewSource(0))
-				updateAccounts := int(batchSize) / 5
-				accounts := make([][]byte, updateAccounts)
-				for i := 0; i < updateAccounts; i++ {
-					var (
-						nonce = uint64(random.Int63())
-						root  = types.EmptyRootHash
-						code  = crypto.Keccak256(generateRandomBytes(20))
-					)
-					numBytes := random.Uint32() % 33 // [0, 32] bytes
-					balanceBytes := make([]byte, numBytes)
-					random.Read(balanceBytes)
-					balance := new(uint256.Int).SetBytes(balanceBytes)
-					data, _ := rlp.EncodeToBytes(&types.StateAccount{Nonce: nonce, Balance: balance, Root: root, CodeHash: code})
-					accounts[i] = data
+			for i := 0; i < updateAccounts; i++ {
+				randomKey, found := d.accountKeyCache.RandomItem()
+				if found {
+					// update the account
+					taskMap.AccountTask[randomKey] = accounts[i]
 				}
-
-				for i := 0; i < updateAccounts; i++ {
-					randomKey, found := d.accountKeyCache.RandomItem()
-					if found {
-						// update the account
-						taskMap.AccountTask[randomKey] = accounts[i]
-					}
-				}
-			}(&taskMap)
+			}
 
 			min_value_size := d.perfConfig.MinValueSize
 			max_value_size := d.perfConfig.MaxValueSize
@@ -336,7 +330,7 @@ func (d *DBRunner) InitLargeStorageTrie(largeTrieIndex int) {
 	d.owners[largeTrieIndex] = common.BytesToHash([]byte(ownerHash))
 	fmt.Println("large trie owner hash", common.BytesToHash([]byte(ownerHash)))
 	blocks := d.perfConfig.TrieBlocks
-
+	d.db.InitStorage(d.owners, int(d.perfConfig.StorageTrieNum)+MaxLargeStorageTrieNum)
 	fmt.Printf("init large tree in %d blocks , trie size %d \n", blocks, StorageInitSize)
 	storageBatch := StorageInitSize / blocks
 	for i := uint64(0); i < d.perfConfig.TrieBlocks; i++ {
