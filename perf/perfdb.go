@@ -759,8 +759,7 @@ func (d *DBRunner) UpdateDB(
 				}
 			}
 		}()
-
-		wg.Done()
+		wg.Wait()
 	}
 
 	wg.Add(2)
