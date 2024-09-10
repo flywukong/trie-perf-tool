@@ -122,6 +122,8 @@ func (d *DBRunner) Run(ctx context.Context) {
 
 
 		*/
+		// init the lock of each tree
+		d.db.InitStorage(d.owners, totalTrieNum+MaxLargeStorageTrieNum)
 		d.InitLargeStorageTries()
 		fmt.Println("init the large tries finish")
 
@@ -136,7 +138,7 @@ func (d *DBRunner) Run(ctx context.Context) {
 		*/
 
 		// init the lock of each tree
-		d.db.InitStorage(d.owners, totalTrieNum+MaxLargeStorageTrieNum)
+		//d.db.InitStorage(d.owners, totalTrieNum+MaxLargeStorageTrieNum)
 	} else {
 		fmt.Println("reload the db and restart press test")
 		ownerList := genOwnerHashKey(totalTrieNum + MaxLargeStorageTrieNum)
@@ -152,10 +154,11 @@ func (d *DBRunner) Run(ctx context.Context) {
 	}
 
 	fmt.Println("init db finish, begin to press kv")
+	return
 	// Start task generation thread
-	go d.generateRunTasks(ctx, d.perfConfig.BatchSize)
-	time.Sleep(20 * time.Second)
-	d.runInternal(ctx)
+	//	go d.generateRunTasks(ctx, d.perfConfig.BatchSize)
+	//	time.Sleep(20 * time.Second)
+	//d.runInternal(ctx)
 }
 
 func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
