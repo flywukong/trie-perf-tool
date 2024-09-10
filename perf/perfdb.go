@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	mathrand "math/rand"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -77,54 +78,62 @@ func (d *DBRunner) Run(ctx context.Context) {
 	defer close(d.taskChan)
 
 	// init the state db
-	blocks := d.perfConfig.AccountsBlocks
+	//	blocks := d.perfConfig.AccountsBlocks
 	totalTrieNum := int(d.perfConfig.StorageTrieNum)
 	fmt.Println("init storage trie number:", totalTrieNum)
 
 	largeTrieNum := int(d.perfConfig.LargeTrieNum)
 
 	if d.perfConfig.IsInitMode {
-		//	debug.SetGCPercent(80)
-		//	debug.SetMemoryLimit(48 * 1024 * 1024 * 1024)
+		debug.SetGCPercent(80)
+		debug.SetMemoryLimit(48 * 1024 * 1024 * 1024)
 
-		fmt.Printf("init account in %d blocks , account num %d \n", blocks, d.perfConfig.AccountsInitSize)
-		diskVersion := d.db.GetVersion()
-		fmt.Println("disk version is", diskVersion)
-		accSize := d.perfConfig.AccountsInitSize
-		accBatch := d.perfConfig.AccountsBlocks
-		accPerBatch := accSize / accBatch
+		/*
+			fmt.Printf("init account in %d blocks , account num %d \n", blocks, d.perfConfig.AccountsInitSize)
+			diskVersion := d.db.GetVersion()
+			fmt.Println("disk version is", diskVersion)
+			accSize := d.perfConfig.AccountsInitSize
+			accBatch := d.perfConfig.AccountsBlocks
+			accPerBatch := accSize / accBatch
 
-		for i := uint64(0); i < d.perfConfig.AccountsBlocks; i++ {
-			startIndex := i * accPerBatch
-			d.InitAccount(i, startIndex, accPerBatch)
-			if i > 1 && i%20000 == 0 {
-				fmt.Println("running empty block for 20000 blocks")
-				for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
-					d.RunEmptyBlock(j)
+			for i := uint64(0); i < d.perfConfig.AccountsBlocks; i++ {
+				startIndex := i * accPerBatch
+				d.InitAccount(i, startIndex, accPerBatch)
+				if i > 1 && i%20000 == 0 {
+					fmt.Println("running empty block for 20000 blocks")
+					for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
+						d.RunEmptyBlock(j)
+					}
 				}
 			}
-		}
 
+
+		*/
 		// generate the storage owners, the first two owner is the large storage and
 		// the others are small trie
 		ownerList := genOwnerHashKey(totalTrieNum + MaxLargeStorageTrieNum)
 		for i := 0; i < totalTrieNum+MaxLargeStorageTrieNum; i++ {
 			d.storageOwnerList[i] = ownerList[i]
 		}
+		/*
+			for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
+				d.RunEmptyBlock(j)
+			}
 
-		for j := uint64(0); j < d.perfConfig.AccountsBlocks/50; j++ {
-			d.RunEmptyBlock(j)
-		}
 
+		*/
 		d.InitLargeStorageTries()
 		fmt.Println("init the large tries finish")
 
-		d.InitSmallStorageTrie()
-		fmt.Println("init small trie finish")
+		/*
+			d.InitSmallStorageTrie()
+			fmt.Println("init small trie finish")
 
-		for i := uint64(0); i < d.perfConfig.AccountsBlocks/50; i++ {
-			d.RunEmptyBlock(i)
-		}
+			for i := uint64(0); i < d.perfConfig.AccountsBlocks/50; i++ {
+				d.RunEmptyBlock(i)
+			}
+
+		*/
 
 		// init the lock of each tree
 		d.db.InitStorage(d.owners, totalTrieNum+MaxLargeStorageTrieNum)
@@ -339,13 +348,8 @@ func (d *DBRunner) InitLargeStorageTrie(largeTrieIndex int) {
 		}
 		keys := genStorageTrieKey(ownerHash, i*storageBatch, storageBatch)
 
-		if i == 0 {
-			d.InitSingleStorageTrie(ownerHash, CAKeyValue{
-				Keys: keys, Vals: vals}, true)
-		} else {
-			d.InitSingleStorageTrie(ownerHash, CAKeyValue{
-				Keys: keys, Vals: vals}, false)
-		}
+		d.InitSingleStorageTrie(ownerHash, CAKeyValue{
+			Keys: keys, Vals: vals}, false)
 	}
 
 	fmt.Println("init large storage trie success", "cost time", time.Since(start).Seconds(), "s")
@@ -782,6 +786,10 @@ func (d *DBRunner) InitSingleStorageTrie(
 	}
 
 	var err error
+	v, err := d.db.GetStorage([]byte(key), []byte(value.Keys[0]))
+	if err == nil && len(v) > 0 {
+		panic("not inert befor")
+	}
 	if firstInsert {
 		v, err2 := d.db.GetAccount(key)
 		if err2 == nil && len(v) > 0 {
@@ -828,7 +836,7 @@ func (d *DBRunner) InitSingleStorageTrie(
 		}
 	}
 	// init 3 accounts to commit a block
-	addresses, accounts := makeAccounts(2)
+	addresses, accounts := makeAccounts(1)
 	for i := 0; i < len(addresses); i++ {
 		initKey := string(crypto.Keccak256(addresses[i][:]))
 		d.db.AddAccount(initKey, accounts[i])
