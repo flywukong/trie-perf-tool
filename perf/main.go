@@ -222,7 +222,7 @@ func main() {
 				Name:        "delete_ratio",
 				Aliases:     []string{"dr"},
 				Usage:       "Delete ratio",
-				Value:       0,
+				Value:       0.3,
 				Destination: &config.DeleteRatio,
 			},
 			&cli.DurationFlag{
@@ -294,7 +294,7 @@ func runPerfDB(c *cli.Context) error {
 		dir, _ := os.Getwd()
 		stateDB = NewStateRunner(filepath.Join(dir, "state-trie-dir"), types.EmptyRootHash)
 	}
-	runner := NewDBRunner(stateDB, parsePerfConfig(c), 2000)
+	runner := NewDBRunner(stateDB, parsePerfConfig(c), 1000)
 	ctx, cancel := context.WithTimeout(context.Background(), c.Duration("runtime"))
 	defer cancel()
 
