@@ -678,18 +678,19 @@ func (d *DBRunner) UpdateDB(
 		snapDB = d.db.GetFlattenDB()
 		cache = d.db.GetCache()
 	}
-	// simulate update small Storage Trie
-	for owner, value := range taskInfo.SmallTrieTask {
-		startPut := time.Now()
-		// Calculate the number of elements to keep based on the ratio
-		updateKeyNum := int(float64(len(value.Keys)) * ratio)
 
-		Keys := value.Keys[:updateKeyNum]
-		Vals := value.Vals[:updateKeyNum]
+	wg.Add(2)
 
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
+	go func() {
+		defer wg.Done()
+		// simulate update small Storage Trie
+		for owner, value := range taskInfo.SmallTrieTask {
+			startPut := time.Now()
+			// Calculate the number of elements to keep based on the ratio
+			updateKeyNum := int(float64(len(value.Keys)) * ratio)
+
+			Keys := value.Keys[:updateKeyNum]
+			Vals := value.Vals[:updateKeyNum]
 			// add new storage
 			_, err := d.db.UpdateStorage([]byte(owner), Keys, Vals)
 			if err != nil {
@@ -702,36 +703,17 @@ func (d *DBRunner) UpdateDB(
 				StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 			}
 			d.stat.IncPut(uint64(len(Keys)))
-		}()
+		}
 
-		go func() {
-			defer wg.Done()
-			if d.db.GetMPTEngine() == StateTrieEngine && snapDB != nil && cache != nil {
-				accHash := common.BytesToHash([]byte(owner))
-				for i, k := range Keys {
-					storageHash := hashData([]byte(k))
-					cachekey := append(accHash[:], storageHash[:]...)
-					rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(Vals[i]))
-					cache.Set(cachekey, []byte(Vals[i]))
-				}
-			}
-		}()
+		// simulate update large Storage Trie
+		for owner, value := range taskInfo.LargeTrieTask {
+			// Calculate the number of elements to keep based on the ratio
+			updateKeyNum := int(float64(len(value.Keys)) * ratio)
 
-		wg.Wait()
-	}
+			// Create new slices based on the calculated number of elements
+			newKeys := value.Keys[:updateKeyNum]
+			newVals := value.Vals[:updateKeyNum]
 
-	// simulate update large Storage Trie
-	for owner, value := range taskInfo.LargeTrieTask {
-		// Calculate the number of elements to keep based on the ratio
-		updateKeyNum := int(float64(len(value.Keys)) * ratio)
-
-		// Create new slices based on the calculated number of elements
-		newKeys := value.Keys[:updateKeyNum]
-		newVals := value.Vals[:updateKeyNum]
-
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
 			startPut := time.Now()
 			// add new storage
 			_, err := d.db.UpdateStorage([]byte(owner), newKeys, newVals)
@@ -745,26 +727,8 @@ func (d *DBRunner) UpdateDB(
 				StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 			}
 			d.stat.IncPut(uint64(len(newKeys)))
-		}()
+		}
 
-		go func() {
-			defer wg.Done()
-			if d.db.GetMPTEngine() == StateTrieEngine && snapDB != nil && cache != nil {
-				accHash := common.BytesToHash([]byte(owner))
-				for i, k := range newKeys {
-					storageHash := hashData([]byte(k))
-					cachekey := append(accHash[:], storageHash[:]...)
-					rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(newVals[i]))
-					cache.Set(cachekey, []byte(newVals[i]))
-				}
-			}
-		}()
-		wg.Wait()
-	}
-
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
 		for key, value := range taskInfo.AccountTask {
 			startPut := time.Now()
 			err := d.db.UpdateAccount([]byte(key), value)
@@ -781,35 +745,27 @@ func (d *DBRunner) UpdateDB(
 			d.accountKeyCache.Add(key)
 			d.stat.IncPut(1)
 		}
+
+		d.wDuration = time.Since(start)
+		d.totalWriteCost += d.wDuration
+
+		if d.db.GetMPTEngine() == VERSADBEngine {
+			VeraDBPutTps.Update(int64(float64(batchSize) / float64(d.wDuration.Microseconds()) * 1000))
+		} else {
+			stateDBPutTps.Update(int64(float64(batchSize) / float64(d.wDuration.Microseconds()) * 1000))
+		}
 	}()
 
 	go func() {
 		defer wg.Done()
 		if d.db.GetMPTEngine() == StateTrieEngine && snapDB != nil && cache != nil {
-			for key, value := range taskInfo.AccountTask {
-				// add new account
-				accHash := common.BytesToHash([]byte(key))
-				rawdb.WriteAccountSnapshot(snapDB, accHash, value)
-				cache.Set(accHash[:], value)
-			}
-		}
-	}()
-
-	wg.Wait()
-
-	d.wDuration = time.Since(start)
-	d.totalWriteCost += d.wDuration
-
-	if d.db.GetMPTEngine() == VERSADBEngine {
-		VeraDBPutTps.Update(int64(float64(batchSize) / float64(d.wDuration.Microseconds()) * 1000))
-	} else {
-		stateDBPutTps.Update(int64(float64(batchSize) / float64(d.wDuration.Microseconds()) * 1000))
-	}
-	/*
-		if d.db.GetMPTEngine() == StateTrieEngine && d.db.GetFlattenDB() != nil && d.db.GetCache() != nil {
+			start2 := time.Now()
+			defer func() {
+				if d.blockHeight%100 == 0 {
+					fmt.Println("update snap cost:", time.Since(start2).Milliseconds(), "ms")
+				}
+			}()
 			// simulate insert key to snap
-			snapDB := d.db.GetFlattenDB()
-			cache := d.db.GetCache()
 			for key, value := range taskInfo.AccountTask {
 				// add new account
 				accHash := common.BytesToHash([]byte(key))
@@ -837,9 +793,8 @@ func (d *DBRunner) UpdateDB(
 				}
 			}
 		}
-
-	*/
-
+	}()
+	wg.Wait()
 }
 
 func (d *DBRunner) InitSingleStorageTrie(
