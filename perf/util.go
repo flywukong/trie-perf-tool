@@ -226,10 +226,10 @@ func makeAccountsV2(startIndex, size uint64) (addresses [][20]byte, accounts [][
 	return addresses, accounts
 }
 
-func genAccountKey(totalSize, size uint64) []string {
+func genAccountKey(totalSize, size uint64) ([][]byte, []string) {
 	// Create a realistic account trie to hash
 	addressList := make([]string, size)
-	addresses := make([][20]byte, size)
+	addresses := make([][]byte, size)
 	for i := uint64(0); i < size; i++ {
 		num := rand.Intn(int(totalSize)) + MaxCATrieNum
 		hash := crypto.Keccak256([]byte(fmt.Sprintf("%d", num)))
@@ -239,7 +239,7 @@ func genAccountKey(totalSize, size uint64) []string {
 		initKey := string(crypto.Keccak256(addresses[i][:]))
 		addressList[i] = initKey
 	}
-	return addressList
+	return addresses, addressList
 }
 
 func genOwnerHashKey(size int) (addresses []string) {
