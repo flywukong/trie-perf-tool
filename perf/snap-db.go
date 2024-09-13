@@ -76,7 +76,7 @@ func NewStateRunner(datadir string, root common.Hash) *StateDBRunner {
 		ownerStorageTrieCache: make(map[common.Hash]*trie.StateTrie),
 		triediskdb:            triediskdb,
 		stateRoot:             diskRoot,
-		cache:                 fastcache.New(300 * 1024 * 1024),
+		cache:                 fastcache.New(1024 * 1024 * 1024),
 	}
 
 	// Initialize with 2 random elements

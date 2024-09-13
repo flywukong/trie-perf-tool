@@ -157,26 +157,29 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 	}()
 	var wg sync.WaitGroup
 
-	wg.Add(3)
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		for i := uint64(0); i < largeTrieNum; i++ {
 			owner := d.storageOwnerList[i]
 			d.largeStorageTrie[i] = owner
-			largeStorageInitSize := d.perfConfig.StorageTrieSize
+			/*
+				largeStorageInitSize := d.perfConfig.StorageTrieSize
 
-			index := mathrand.Intn(5)
-			startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
-			endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
-			middleRangeStart := startRange + (endRange-startRange)/4
-			middleRangeEnd := endRange - (endRange-startRange)/4
-			randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+				index := mathrand.Intn(5)
+				startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
+				endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
+				middleRangeStart := startRange + (endRange-startRange)/4
+				middleRangeEnd := endRange - (endRange-startRange)/4
+				randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 
-			if i <= 1 {
-				d.largeStorageCache[owner] = genStorageTrieKeyV1(uint64(randomIndex), largeStorageInitSize/500)
-			} else {
-				d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/100)
-			}
+				if i <= 1 {
+					d.largeStorageCache[owner] = genStorageTrieKeyV1(uint64(randomIndex), largeStorageInitSize/500)
+				} else {
+					d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/100)
+				}
+
+			*/
 		}
 	}()
 
@@ -184,51 +187,63 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 		defer wg.Done()
 		for i := uint64(0); i < totalTrieNum-largeTrieNum; i++ {
 			owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
-			d.smallStorageTrieCache.Add(owner)
+			//	d.smallStorageTrieCache.Add(owner)
 			d.smallStorageTrie[i] = owner
-			smallStorageInitSize := d.perfConfig.SmallStorageSize
+			/*
 
-			index := mathrand.Intn(5)
-			startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
-			endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
-			middleRangeStart := startRange + (endRange-startRange)/4
-			middleRangeEnd := endRange - (endRange-startRange)/4
+				smallStorageInitSize := d.perfConfig.SmallStorageSize
 
-			randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+				index := mathrand.Intn(5)
+				startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
+				endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
+				middleRangeStart := startRange + (endRange-startRange)/4
+				middleRangeEnd := endRange - (endRange-startRange)/4
 
-			d.storageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), smallStorageInitSize/1000)
+				randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+
+				d.storageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), smallStorageInitSize/1000)
+
+			*/
 		}
 	}()
 
-	go func() {
-		defer wg.Done()
-		// init the account key cache
-		adddresses, _ := genAccountKey(d.perfConfig.AccountsInitSize, AccountKeyCacheSize)
-		for i := 0; i < AccountKeyCacheSize; i++ {
-			//	d.accountKeyCache.Add(accKeys[i])
-			d.accountKeyCache.Add(string(adddresses[i]))
-		}
-	}()
+	/*
+		go func() {
+			defer wg.Done()
+			// init the account key cache
+			adddresses, _ := genAccountKey(d.perfConfig.AccountsInitSize, AccountKeyCacheSize)
+			for i := 0; i < AccountKeyCacheSize; i++ {
+				//	d.accountKeyCache.Add(accKeys[i])
+				d.accountKeyCache.Add(string(adddresses[i]))
+			}
+		}()
+
+	*/
 
 	wg.Wait()
 }
 
 func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
+	n := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+			n++
 			startUpdate := time.Now()
 			defer func() {
-				if d.blockHeight%100 == 0 {
+				if n%100 == 0 {
 					fmt.Println("generate task cost time:", time.Since(startUpdate).Milliseconds(), "ms")
 				}
 			}()
-			// update the source test data cache every 5000 blocks
-			if d.blockHeight%5000 == 0 && d.blockHeight > 0 {
-				d.updateCache(d.perfConfig.LargeTrieNum, d.perfConfig.StorageTrieNum)
-			}
+			/*
+				// update the source test data cache every 5000 blocks
+				if d.blockHeight%5000 == 0 && d.blockHeight > 0 {
+					d.updateCache(d.perfConfig.LargeTrieNum, d.perfConfig.StorageTrieNum)
+				}
+
+			*/
 
 			taskMap := NewDBTask()
 			var wg sync.WaitGroup
@@ -254,12 +269,10 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					accounts[i] = data
 				}
 
+				_, accountList := genAccountKey(d.perfConfig.AccountsInitSize, uint64(updateAccounts))
 				for i := 0; i < updateAccounts; i++ {
-					randomKey, found := d.accountKeyCache.RandomItem()
-					if found {
-						// update the account
-						task.AccountTask[randomKey] = accounts[i]
-					}
+					//	d.accountKeyCache.Add(accKeys[i])
+					task.AccountTask[accountList[i]] = accounts[i]
 				}
 			}(&taskMap)
 
@@ -268,6 +281,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 
 			go func(task *DBTask) {
 				defer wg.Done()
+				smallTrieTestData := make(map[string][]string)
 				// small storage trie write 3/5 kv of storage
 				var randomStorageTrieList []string
 				// random choose 29 small tries
@@ -283,11 +297,24 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 
 				storageUpdateNum := int(batchSize) / 5 * 3 / len(randomStorageTrieList)
 				for i := 0; i < len(randomStorageTrieList); i++ {
+					owner := randomStorageTrieList[i]
+
+					index := mathrand.Intn(5)
+					startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
+					endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
+					middleRangeStart := startRange + (endRange-startRange)/4
+					middleRangeEnd := endRange - (endRange-startRange)/4
+					randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+
+					smallTrieTestData[owner] = genStorageTrieKey(owner, uint64(randomIndex), uint64(storageUpdateNum))
+				}
+
+				for i := 0; i < len(randomStorageTrieList); i++ {
 					keys := make([]string, 0, storageUpdateNum)
 					vals := make([]string, 0, storageUpdateNum)
-					//owner := d.smallStorageTrie[i]
-					owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
-					v := d.storageCache[owner]
+					owner := randomStorageTrieList[i]
+					//	owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
+					v := smallTrieTestData[owner]
 					for j := 0; j < storageUpdateNum; j++ {
 						// only cache 10000 for updating test
 						randomIndex := mathrand.Intn(len(v))
@@ -310,13 +337,27 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				index := mathrand.Intn(largeTrieNum)
 				//	k := d.largeStorageTrie[index]
 				owner := d.storageOwnerList[index]
-				v := d.largeStorageCache[owner]
+				largeStorageCache := make(map[string][]string)
+
+				id := mathrand.Intn(5)
+				startRange := (int(d.perfConfig.StorageTrieSize) / 5 * id)
+				endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (id + 1))
+				middleRangeStart := startRange + (endRange-startRange)/4
+				middleRangeEnd := endRange - (endRange-startRange)/4
+				randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+
+				if index <= 1 {
+					largeStorageCache[owner] = genStorageTrieKeyV1(uint64(randomIndex), uint64(largeStorageUpdateNum))
+				} else {
+					largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), uint64(largeStorageUpdateNum))
+				}
+				v := largeStorageCache[owner]
 				//fmt.Println("large tree cache key len ", len(v))
 				keys := make([]string, 0, largeStorageUpdateNum)
 				vals := make([]string, 0, largeStorageUpdateNum)
 				for j := 0; j < largeStorageUpdateNum; j++ {
 					// only cache 10000 for updating test
-					randomIndex := mathrand.Intn(len(v))
+					randomIndex = mathrand.Intn(len(v))
 					value := generateValueV2(min_value_size, max_value_size)
 					keys = append(keys, v[randomIndex])
 					vals = append(vals, string(value))
