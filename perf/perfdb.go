@@ -157,68 +157,63 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 	}()
 	var wg sync.WaitGroup
 
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		for i := uint64(0); i < largeTrieNum; i++ {
 			owner := d.storageOwnerList[i]
 			d.largeStorageTrie[i] = owner
-			/*
-				largeStorageInitSize := d.perfConfig.StorageTrieSize
 
-				index := mathrand.Intn(5)
-				startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
-				endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
-				middleRangeStart := startRange + (endRange-startRange)/4
-				middleRangeEnd := endRange - (endRange-startRange)/4
-				randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+			largeStorageInitSize := d.perfConfig.StorageTrieSize
 
-				if i <= 1 {
-					d.largeStorageCache[owner] = genStorageTrieKeyV1(uint64(randomIndex), largeStorageInitSize/500)
-				} else {
-					d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/100)
-				}
+			index := mathrand.Intn(5)
+			startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
+			endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
+			middleRangeStart := startRange + (endRange-startRange)/4
+			middleRangeEnd := endRange - (endRange-startRange)/4
+			randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 
-			*/
+			if i <= 1 {
+				d.largeStorageCache[owner] = genStorageTrieKeyV1(uint64(randomIndex), largeStorageInitSize/1000)
+			} else {
+				d.largeStorageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), largeStorageInitSize/1000)
+			}
+
 		}
+		fmt.Println("update large storage cache finish")
 	}()
 
 	go func() {
 		defer wg.Done()
 		for i := uint64(0); i < totalTrieNum-largeTrieNum; i++ {
 			owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
-			//	d.smallStorageTrieCache.Add(owner)
-			d.smallStorageTrie[i] = owner
-			/*
+			d.smallStorageTrie[i] = string(owner)
+			smallStorageInitSize := d.perfConfig.SmallStorageSize
 
-				smallStorageInitSize := d.perfConfig.SmallStorageSize
+			index := mathrand.Intn(5)
+			startRange := (int(smallStorageInitSize) / 5 * index)
+			endRange := (int(smallStorageInitSize) / 5 * (index + 1))
+			middleRangeStart := startRange + (endRange-startRange)/4
+			middleRangeEnd := endRange - (endRange-startRange)/4
 
-				index := mathrand.Intn(5)
-				startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
-				endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
-				middleRangeStart := startRange + (endRange-startRange)/4
-				middleRangeEnd := endRange - (endRange-startRange)/4
+			randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 
-				randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+			d.storageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), smallStorageInitSize/2000)
 
-				d.storageCache[owner] = genStorageTrieKey(owner, uint64(randomIndex), smallStorageInitSize/1000)
-
-			*/
 		}
+		fmt.Println("update small storage cache finish")
 	}()
 
-	/*
-		go func() {
-			defer wg.Done()
-			// init the account key cache
-			adddresses, _ := genAccountKey(d.perfConfig.AccountsInitSize, AccountKeyCacheSize)
-			for i := 0; i < AccountKeyCacheSize; i++ {
-				//	d.accountKeyCache.Add(accKeys[i])
-				d.accountKeyCache.Add(string(adddresses[i]))
-			}
-		}()
-
-	*/
+	go func() {
+		defer wg.Done()
+		// init the account key cache
+		adddresses := genAccountKey(d.perfConfig.AccountsInitSize, AccountKeyCacheSize)
+		for i := 0; i < AccountKeyCacheSize; i++ {
+			//	d.accountKeyCache.Add(accKeys[i])
+			d.accountKeyCache.Add(string(adddresses[i]))
+		}
+		fmt.Println("update account cache finish")
+	}()
 
 	wg.Wait()
 }
@@ -232,11 +227,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 		default:
 			n++
 			startUpdate := time.Now()
-			defer func() {
-				if n%100 == 0 {
-					fmt.Println("generate task cost time:", time.Since(startUpdate).Milliseconds(), "ms")
-				}
-			}()
+
 			/*
 				// update the source test data cache every 5000 blocks
 				if d.blockHeight%5000 == 0 && d.blockHeight > 0 {
@@ -269,11 +260,21 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					accounts[i] = data
 				}
 
-				_, accountList := genAccountKey(d.perfConfig.AccountsInitSize, uint64(updateAccounts))
-				for i := 0; i < updateAccounts; i++ {
+				accountList := genAccountKey(d.perfConfig.AccountsInitSize, uint64(updateAccounts))
+				for i := 0; i < updateAccounts/10*6; i++ {
 					//	d.accountKeyCache.Add(accKeys[i])
 					task.AccountTask[accountList[i]] = accounts[i]
 				}
+
+				for i := 0; i < updateAccounts/10*4; i++ {
+					randomkey, exist := d.accountKeyCache.RandomItem()
+					if exist {
+						task.AccountTask[randomkey] = accounts[i]
+					} else {
+						fmt.Println("fail to find test account in cache")
+					}
+				}
+
 			}(&taskMap)
 
 			min_value_size := d.perfConfig.MinValueSize
@@ -295,13 +296,15 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					randomStorageTrieList = d.smallStorageTrie
 				}
 
+				smallStorageInitSize := d.perfConfig.SmallStorageSize
+
 				storageUpdateNum := int(batchSize) / 5 * 3 / len(randomStorageTrieList)
 				for i := 0; i < len(randomStorageTrieList); i++ {
 					owner := randomStorageTrieList[i]
 
 					index := mathrand.Intn(5)
-					startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
-					endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
+					startRange := (int(smallStorageInitSize) / 5 * index)
+					endRange := (int(smallStorageInitSize) / 5 * (index + 1))
 					middleRangeStart := startRange + (endRange-startRange)/4
 					middleRangeEnd := endRange - (endRange-startRange)/4
 					randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
@@ -315,12 +318,21 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					owner := randomStorageTrieList[i]
 					//	owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 					v := smallTrieTestData[owner]
-					for j := 0; j < storageUpdateNum; j++ {
+					for j := 0; j < storageUpdateNum/10*6; j++ {
 						// only cache 10000 for updating test
 						randomIndex := mathrand.Intn(len(v))
 						keys = append(keys, v[randomIndex])
 						vals = append(vals, string(generateValueV2(min_value_size, max_value_size)))
 					}
+
+					v2 := d.storageCache[owner]
+					for j := 0; j < storageUpdateNum/10*4; j++ {
+						// only cache 10000 for updating test
+						randomIndex := mathrand.Intn(len(v2))
+						keys = append(keys, v2[randomIndex])
+						vals = append(vals, string(generateValueV2(min_value_size, max_value_size)))
+					}
+
 					task.SmallTrieTask[owner] = CAKeyValue{Keys: keys, Vals: vals}
 				}
 			}(&taskMap)
@@ -355,17 +367,28 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				//fmt.Println("large tree cache key len ", len(v))
 				keys := make([]string, 0, largeStorageUpdateNum)
 				vals := make([]string, 0, largeStorageUpdateNum)
-				for j := 0; j < largeStorageUpdateNum; j++ {
+				for j := 0; j < largeStorageUpdateNum/10*6; j++ {
 					// only cache 10000 for updating test
 					randomIndex = mathrand.Intn(len(v))
 					value := generateValueV2(min_value_size, max_value_size)
 					keys = append(keys, v[randomIndex])
 					vals = append(vals, string(value))
 				}
+
+				v2 := d.largeStorageCache[owner]
+				for j := 0; j < largeStorageUpdateNum/10*4; j++ {
+					// only cache 10000 for updating test
+					randomIndex = mathrand.Intn(len(v2))
+					value := generateValueV2(min_value_size, max_value_size)
+					keys = append(keys, v2[randomIndex])
+					vals = append(vals, string(value))
+				}
+
 				task.LargeTrieTask[owner] = CAKeyValue{Keys: keys, Vals: vals}
 			}(&taskMap)
 
 			wg.Wait()
+
 			d.taskChan <- taskMap
 		}
 	}
@@ -654,6 +677,7 @@ func (d *DBRunner) UpdateDB(
 						if err != nil {
 							fmt.Println("fail to get small trie key", err.Error())
 						}
+						fmt.Println("fail to get small trie key")
 						d.stat.IncGetNotExist(1)
 					}
 				}
@@ -679,6 +703,7 @@ func (d *DBRunner) UpdateDB(
 					if err != nil {
 						fmt.Println("fail to get large tree key", err.Error())
 					}
+					fmt.Println("fail to get large tree key")
 					d.stat.IncGetNotExist(1)
 				}
 			}
@@ -706,6 +731,7 @@ func (d *DBRunner) UpdateDB(
 					if err != nil {
 						fmt.Println("fail to get account key", err.Error())
 					}
+					fmt.Println("fail to get account key")
 					d.stat.IncGetNotExist(1)
 				}
 			}

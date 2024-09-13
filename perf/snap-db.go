@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/ethereum/go-ethereum/common"
@@ -237,7 +238,16 @@ func (s *StateDBRunner) UpdateStorage(owner []byte, keys []string, vals []string
 
 	// update batch storage trie
 	for i := 0; i < len(keys) && i < len(vals); i++ {
+		start := time.Now()
 		stTrie.MustUpdate([]byte(keys[i]), []byte(vals[i]))
+		StateTreeUpdateTime.Update(time.Since(start))
+		/*
+		                      err = stTrie.UpdateStorage(common.BytesToAddress(owner), []byte(keys[i]),
+		 []byte(vals[i]))
+		                      if err != nil {
+		                               fmt.Println("update storage error", err.Error())
+		                       }
+		*/
 	}
 
 	root, nodes, err := stTrie.Commit(true)
