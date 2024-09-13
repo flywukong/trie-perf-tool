@@ -163,9 +163,7 @@ func (v *VersaDBRunner) UpdateStorage(owner []byte, keys []string, values []stri
 		}
 	}
 	for i := 0; i < len(keys) && i < len(values); i++ {
-		start := time.Now()
 		err = v.db.Put(tHandler, []byte(keys[i]), []byte(values[i]))
-		VersaTreeUpdateTime.Update(time.Since(start))
 		if err != nil {
 			fmt.Println("failed to read key using caching tree hanlder, err:", err.Error())
 		}

@@ -630,67 +630,89 @@ func (d *DBRunner) UpdateDB(
 ) {
 
 	batchSize := int(d.perfConfig.BatchSize)
-	//threadNum := d.perfConfig.NumJobs
+	threadNum := d.perfConfig.NumJobs
 	var wg sync.WaitGroup
 	start := time.Now()
 
-	//smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
+	smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
 
-	for owner, CAKeys := range taskInfo.SmallTrieTask {
-		for j := 0; j < len(CAKeys.Keys); j++ {
-			startRead := time.Now()
-			value, err := d.db.GetStorage([]byte(owner), []byte(CAKeys.Keys[j]))
-			if d.db.GetMPTEngine() == VERSADBEngine {
-				VersaDBAccGetLatency.Update(time.Since(startRead))
-			} else {
-				StateDBAccGetLatency.Update(time.Since(startRead))
-			}
-			d.stat.IncGet(1)
-			if err != nil || value == nil {
-				if err != nil {
-					fmt.Println("fail to get small trie key", err.Error())
+	for i := 0; i < threadNum-1; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			for owner, CAKeys := range smallTrieMaps[index] {
+				for j := 0; j < len(CAKeys.Keys); j++ {
+					startRead := time.Now()
+					value, err := d.db.GetStorage([]byte(owner), []byte(CAKeys.Keys[j]))
+					if d.db.GetMPTEngine() == VERSADBEngine {
+						VersaDBAccGetLatency.Update(time.Since(startRead))
+					} else {
+						StateDBAccGetLatency.Update(time.Since(startRead))
+					}
+					d.stat.IncGet(1)
+					if err != nil || value == nil {
+						if err != nil {
+							fmt.Println("fail to get small trie key", err.Error())
+						}
+						d.stat.IncGetNotExist(1)
+					}
 				}
-				d.stat.IncGetNotExist(1)
 			}
-		}
+		}(i)
 	}
 
 	// use one thread to read a random large storage trie
-	for owner, CAkeys := range taskInfo.LargeTrieTask {
-		for i := 0; i < len(CAkeys.Keys); i++ {
-			startRead := time.Now()
-			value, err := d.db.GetStorage([]byte(owner), []byte(CAkeys.Keys[i]))
-			if d.db.GetMPTEngine() == VERSADBEngine {
-				versaDBStorageGetLatency.Update(time.Since(startRead))
-			} else {
-				StateDBStorageGetLatency.Update(time.Since(startRead))
-			}
-			d.stat.IncGet(1)
-			if err != nil || value == nil {
-				if err != nil {
-					fmt.Println("fail to get large tree key", err.Error())
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for owner, CAkeys := range taskInfo.LargeTrieTask {
+			for i := 0; i < len(CAkeys.Keys); i++ {
+				startRead := time.Now()
+				value, err := d.db.GetStorage([]byte(owner), []byte(CAkeys.Keys[i]))
+				if d.db.GetMPTEngine() == VERSADBEngine {
+					versaDBStorageGetLatency.Update(time.Since(startRead))
+				} else {
+					StateDBStorageGetLatency.Update(time.Since(startRead))
 				}
-				d.stat.IncGetNotExist(1)
+				d.stat.IncGet(1)
+				if err != nil || value == nil {
+					if err != nil {
+						fmt.Println("fail to get large tree key", err.Error())
+					}
+					d.stat.IncGetNotExist(1)
+				}
 			}
 		}
-	}
+	}()
 
-	for key, _ := range taskInfo.AccountTask {
-		startRead := time.Now()
-		value, err := d.db.GetAccount(key)
-		if d.db.GetMPTEngine() == VERSADBEngine {
-			VersaDBAccGetLatency.Update(time.Since(startRead))
-		} else {
-			StateDBAccGetLatency.Update(time.Since(startRead))
-		}
-		d.stat.IncGet(1)
-		if err != nil || value == nil {
-			if err != nil {
-				fmt.Println("fail to get account key", err.Error())
+	wg.Wait()
+
+	accountMaps := splitAccountTask(taskInfo.AccountTask, threadNum)
+	//  read 1/5 kv of account
+	for i := 0; i < threadNum; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			for key, _ := range accountMaps[index] {
+				startRead := time.Now()
+				value, err := d.db.GetAccount(key)
+				if d.db.GetMPTEngine() == VERSADBEngine {
+					VersaDBAccGetLatency.Update(time.Since(startRead))
+				} else {
+					StateDBAccGetLatency.Update(time.Since(startRead))
+				}
+				d.stat.IncGet(1)
+				if err != nil || value == nil {
+					if err != nil {
+						fmt.Println("fail to get account key", err.Error())
+					}
+					d.stat.IncGetNotExist(1)
+				}
 			}
-			d.stat.IncGetNotExist(1)
-		}
+
+		}(i)
 	}
+	wg.Wait()
 
 	d.rDuration = time.Since(start)
 	d.totalReadCost += d.rDuration

@@ -53,12 +53,4 @@ var (
 
 	snapshotCleanStorageHitMeter  = metrics.NewRegisteredMeter("state/snapshot/storage/hit", nil)
 	snapshotCleanStorageMissMeter = metrics.NewRegisteredMeter("state/snapshot/storage/miss", nil)
-
-	StateTreeGetTime = metrics.NewRegisteredTimer("state/tree/get/time", nil)
-
-	VersaTreeGetTime = metrics.NewRegisteredTimer("versa/tree/get/time", nil)
-
-	StateTreeUpdateTime = metrics.NewRegisteredTimer("state/tree/update/time", nil)
-
-	VersaTreeUpdateTime = metrics.NewRegisteredTimer("versa/tree/update/time", nil)
 )
