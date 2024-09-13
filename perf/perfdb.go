@@ -185,7 +185,7 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 		for i := uint64(0); i < totalTrieNum-largeTrieNum; i++ {
 			owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 			d.smallStorageTrieCache.Add(owner)
-			d.smallStorageTrie[i] = string(owner)
+			d.smallStorageTrie[i] = owner
 			smallStorageInitSize := d.perfConfig.SmallStorageSize
 
 			index := mathrand.Intn(5)
