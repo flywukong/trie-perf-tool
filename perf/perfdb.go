@@ -225,14 +225,6 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			return
 		default:
 
-			/*
-				// update the source test data cache every 5000 blocks
-				if d.blockHeight%5000 == 0 && d.blockHeight > 0 {
-					d.updateCache(d.perfConfig.LargeTrieNum, d.perfConfig.StorageTrieNum)
-				}
-
-			*/
-
 			taskMap := NewDBTask()
 			var wg sync.WaitGroup
 
@@ -509,19 +501,6 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 				stateDBRWLatency.Update(d.rwDuration)
 			}
 			// compute hash
-			/*
-					hashStart := time.Now()
-					d.db.Hash()
-					d.hashDuration = time.Since(hashStart)
-					if d.db.GetMPTEngine() == VERSADBEngine {
-						VeraDBHashLatency.Update(d.hashDuration)
-					} else {
-						stateDBHashLatency.Update(d.hashDuration)
-					}
-				d.totalHashurations += d.hashDuration
-			*/
-			// commit
-
 			commtStart := time.Now()
 			if _, err := d.db.Commit(); err != nil {
 				panic("failed to commit: " + err.Error())
