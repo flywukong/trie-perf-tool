@@ -1,19 +1,5 @@
 package main
 
-import (
-	"context"
-	"fmt"
-	mathrand "math/rand"
-	"time"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/holiman/uint256"
-)
-
 type StateVerifyer struct {
 	verifyDB         StateDatabase
 	baseDB           StateDatabase
@@ -48,6 +34,7 @@ func NewStateVerifyer(
 	return verifyer
 }
 
+/*
 func (s *StateVerifyer) Run(ctx context.Context) {
 	defer close(s.taskChan)
 
@@ -325,3 +312,4 @@ func (s *StateVerifyer) UpdateAccount(key []byte, value []byte) error {
 	}
 	return nil
 }
+*/

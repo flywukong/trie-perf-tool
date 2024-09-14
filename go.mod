@@ -3,7 +3,7 @@ module mpt-perf
 go 1.21
 
 require (
-	github.com/bnb-chain/versioned-state-database v0.0.0-20240911060158-673f203ee165
+	github.com/bnb-chain/versioned-state-database v0.0.0-20240919024445-9b2e3f9bd2ab
 	github.com/ethereum/go-ethereum v1.14.7
 	github.com/holiman/uint256 v1.3.0
 	github.com/syndtr/goleveldb v1.0.1
@@ -37,6 +37,7 @@ require (
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
+	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/herumi/bls-eth-go-binary v0.0.0-20210917013441-d37c07cfda4e // indirect
 	github.com/klauspost/compress v1.17.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect

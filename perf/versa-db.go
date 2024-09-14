@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"sync"
 	"time"
@@ -10,10 +9,10 @@ import (
 	versaDB "github.com/bnb-chain/versioned-state-database"
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/holiman/uint256"
 )
 
 type VersaDBRunner struct {
@@ -75,33 +74,34 @@ func OpenVersaDB(path string, version int64) *VersaDBRunner {
 	}
 }
 
-func (v *VersaDBRunner) AddAccount(acckey string, val []byte) error {
-	return v.db.Put(v.rootTree, []byte(acckey), val)
+func (v *VersaDBRunner) AddAccount(address common.Address, acc *ethTypes.StateAccount) error {
+	data, err := rlp.EncodeToBytes(acc)
+	if err != nil {
+		return err
+	}
+	return v.db.Put(v.rootTree, address.Bytes(), data)
 }
 
-func (v *VersaDBRunner) GetAccount(acckey string) ([]byte, error) {
-	_, val, err := v.db.Get(v.rootTree, []byte(acckey))
+func (v *VersaDBRunner) GetAccount(address common.Address) ([]byte, error) {
+	_, val, err := v.db.Get(v.rootTree, address.Bytes())
 	if err != nil {
 		return nil, err
 	}
 	return val, nil
 }
 
-func (v *VersaDBRunner) AddStorage(owner []byte, keys []string, vals []string) error {
-	ownerHash := common.BytesToHash(owner)
-	stRoot := v.makeStorageTrie(ownerHash, keys, vals)
+func (v *VersaDBRunner) AddStorage(owner common.Address, keys []string, vals []string) error {
+	stRoot := v.makeStorageTrie(owner, keys, vals)
 	//random := rand.New(rand.NewSource(0))
-	acc := &ethTypes.StateAccount{Nonce: uint64(2), Balance: uint256.NewInt(3),
-		Root: stRoot, CodeHash: generateCodeHash(owner).Bytes()}
-	val, err := rlp.EncodeToBytes(acc)
-	if err != nil {
-		fmt.Println("encode acc err", err.Error())
-	}
+	nonce, balance := getRandomBalance()
+	acc := &ethTypes.StateAccount{Nonce: nonce, Balance: balance,
+		Root: stRoot, CodeHash: generateCodeHash(owner.Bytes()).Bytes()}
 
-	return v.AddAccount(string(owner), val)
+	return v.AddAccount(owner, acc)
 }
 
-func (v *VersaDBRunner) makeStorageTrie(owner common.Hash, keys []string, vals []string) common.Hash {
+func (v *VersaDBRunner) makeStorageTrie(address common.Address, keys []string, vals []string) common.Hash {
+	owner := crypto.Keccak256Hash(address.Bytes())
 	tHandler, err := v.db.OpenTree(v.stateHandler, v.version, owner, ethTypes.EmptyRootHash)
 	if err != nil {
 		panic(fmt.Sprintf("failed to open tree, version: %d, owner: %d, err: %s", version, owner, err.Error()))
@@ -136,9 +136,9 @@ func (v *VersaDBRunner) InitStorage(owners []common.Hash, trieNum int) {
 }
 
 // UpdateStorage  update batch k,v of storage trie
-func (v *VersaDBRunner) UpdateStorage(owner []byte, keys []string, values []string) (common.Hash, error) {
+func (v *VersaDBRunner) UpdateStorage(address common.Address, keys []string, values []string) (common.Hash, error) {
 	var err error
-	ownerHash := common.BytesToHash(owner)
+	ownerHash := crypto.Keccak256Hash(address.Bytes())
 	var tHandler versaDB.TreeHandler
 
 	v.handlerLock.RLock()
@@ -173,19 +173,16 @@ func (v *VersaDBRunner) UpdateStorage(owner []byte, keys []string, values []stri
 
 	hash, err := v.db.Commit(tHandler)
 	if err != nil {
-		panic(fmt.Sprintf("failed to commit tree, version: %d, owner: %d, err: %s", version, owner, err.Error()))
+		panic(fmt.Sprintf("failed to commit tree, version: %d, owner: %d, err: %s", version, ownerHash, err.Error()))
 	}
 
-	acc := &ethTypes.StateAccount{Nonce: uint64(2), Balance: uint256.NewInt(3),
-		Root: hash, CodeHash: generateCodeHash(owner).Bytes()}
-	val, err := rlp.EncodeToBytes(acc)
-	if err != nil {
-		fmt.Println("encode acc err", err.Error())
-	}
+	nonce, balance := getRandomBalance()
+	acc := &ethTypes.StateAccount{Nonce: nonce, Balance: balance,
+		Root: hash, CodeHash: generateCodeHash(address.Bytes()).Bytes()}
 
-	err = v.UpdateAccount(owner, val)
+	err = v.UpdateAccount(address, acc)
 	if err != nil {
-		panic(fmt.Sprintf("failed add account of owner version: %d, owner: %d, err: %s", version, owner, err.Error()))
+		panic(fmt.Sprintf("failed add account of owner version: %d, owner: %d, err: %s", version, ownerHash, err.Error()))
 	}
 
 	// handler is unuseful after commit
@@ -204,23 +201,30 @@ func (v *VersaDBRunner) UpdateStorage(owner []byte, keys []string, values []stri
 	return hash, nil
 }
 
-func (v *VersaDBRunner) UpdateAccount(key, value []byte) error {
-	_, originValue, err := v.db.Get(v.rootTree, key)
+func (v *VersaDBRunner) UpdateAccount(address common.Address, account *ethTypes.StateAccount) error {
+	/*
+		_, originValue, err := v.db.Get(v.rootTree, address.Bytes())
+		if err != nil {
+			return err
+		}
+		if len(originValue) == 0 {
+			return fmt.Errorf("get account nil when update")
+		}
+		if bytes.Equal(originValue, value) {
+			fmt.Println("update account no value update")
+			return nil
+		}
+
+	*/
+	data, err := rlp.EncodeToBytes(account)
 	if err != nil {
 		return err
 	}
-	if len(originValue) == 0 {
-		return fmt.Errorf("get account nil when update")
-	}
-	if bytes.Equal(originValue, value) {
-		fmt.Println("update account no value update")
-		return nil
-	}
-	return v.db.Put(v.rootTree, key, value)
+	return v.db.Put(v.rootTree, address.Bytes(), data)
 }
 
-func (v *VersaDBRunner) GetStorage(owner []byte, key []byte) ([]byte, error) {
-	ownerHash := common.BytesToHash(owner)
+func (v *VersaDBRunner) GetStorage(address common.Address, key []byte) ([]byte, error) {
+	ownerHash := crypto.Keccak256Hash(address.Bytes())
 	v.handlerLock.RLock()
 	tHandler, found := v.ownerHandlerCache[ownerHash]
 	v.handlerLock.RUnlock()
@@ -234,7 +238,7 @@ func (v *VersaDBRunner) GetStorage(owner []byte, key []byte) ([]byte, error) {
 		cache, exist := v.ownerStorageCache[ownerHash]
 		v.lock.RUnlock()
 		if !exist {
-			versionNum, encodedData, err = v.db.Get(v.rootTree, owner)
+			versionNum, encodedData, err = v.db.Get(v.rootTree, address.Bytes())
 			if err != nil {
 				return nil, err
 			}
@@ -243,7 +247,7 @@ func (v *VersaDBRunner) GetStorage(owner []byte, key []byte) ([]byte, error) {
 			err = rlp.DecodeBytes(encodedData, account)
 			if err != nil {
 				fmt.Printf("Failed to decode RLP %v, db get CA account %s, version %d, val len:%d, versrion2 %d\n",
-					err, common.BytesToHash(owner).String(),
+					err, ownerHash,
 					v.version, len(encodedData), versionNum)
 				return nil, err
 			}
@@ -379,7 +383,7 @@ func (v *VersaDBRunner) GetFlattenDB() ethdb.KeyValueStore {
 	return nil
 }
 
-func (v *VersaDBRunner) RepairSnap(owners []string, trieNum int) {
+func (v *VersaDBRunner) RepairSnap(owners []common.Address, trieNum int) {
 	return
 }
 

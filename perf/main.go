@@ -157,7 +157,7 @@ func main() {
 				Name:        "smallstorage",
 				Aliases:     []string{"ss"},
 				Usage:       "small storage trie size",
-				Value:       1500000,
+				Value:       150000,
 				Destination: &config.SmallStorageSize,
 			},
 			&cli.Uint64Flag{
@@ -361,12 +361,13 @@ func verifyDB(c *cli.Context) error {
 	dir, _ := os.Getwd()
 	stateDB := NewStateRunner(filepath.Join(dir, "state-trie-dir"), types.EmptyRootHash)
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.Duration("runtime"))
-	defer cancel()
+	//ctx, cancel := context.WithTimeout(context.Background(), c.Duration("runtime"))
+	//defer cancel()
 	verifyer := NewStateVerifyer(stateDB, VersaDB, parsePerfConfig(c), 10)
 
 	fmt.Println("begin to verify root hash, the batch size of block is", verifyer.perfConfig.BatchSize)
-	verifyer.Run(ctx)
+
+	//	verifyer.Run(ctx)
 	return nil
 }
 

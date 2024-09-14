@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 )
 
@@ -27,17 +28,17 @@ type TrieDatabase interface {
 }
 
 type StateDatabase interface {
-	GetAccount(string) ([]byte, error)
+	GetAccount(address common.Address) ([]byte, error)
 
-	AddAccount(key string, value []byte) error
+	AddAccount(address common.Address, acc *types.StateAccount) error
 
-	UpdateAccount(key []byte, value []byte) error
+	UpdateAccount(address common.Address, acc *types.StateAccount) error
 
-	AddStorage(owner []byte, keys []string, vals []string) error
+	AddStorage(address common.Address, keys []string, vals []string) error
 
-	GetStorage(owner []byte, key []byte) ([]byte, error)
+	GetStorage(address common.Address, key []byte) ([]byte, error)
 
-	UpdateStorage(owner []byte, keys []string, value []string) (common.Hash, error)
+	UpdateStorage(address common.Address, keys []string, value []string) (common.Hash, error)
 
 	Commit() (common.Hash, error)
 
@@ -49,7 +50,7 @@ type StateDatabase interface {
 
 	InitStorage(owners []common.Hash, trieNum int)
 
-	RepairSnap(owners []string, trieNum int)
+	RepairSnap(owners []common.Address, trieNum int)
 
 	GetVersion() int64
 
