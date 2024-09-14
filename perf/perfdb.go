@@ -219,14 +219,11 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 }
 
 func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
-	n := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			n++
-			startUpdate := time.Now()
 
 			/*
 				// update the source test data cache every 5000 blocks
