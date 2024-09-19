@@ -527,9 +527,7 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 			}
 			d.updateAccount = 0
 			BlockHeight.Update(int64(d.blockHeight))
-			if d.blockHeight > 3000 {
-				return
-			}
+
 		case <-ticker.C:
 			d.printStat()
 			printAvg++
