@@ -3,6 +3,7 @@ module mpt-perf
 go 1.21
 
 require (
+	github.com/VictoriaMetrics/fastcache v1.12.2
 	github.com/bnb-chain/versioned-state-database v0.0.0-20240919024445-9b2e3f9bd2ab
 	github.com/ethereum/go-ethereum v1.14.7
 	github.com/holiman/uint256 v1.3.0
@@ -13,7 +14,6 @@ require (
 
 require (
 	github.com/DataDog/zstd v1.5.5 // indirect
-	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.11.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
@@ -66,7 +66,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e // indirect
-	github.com/tidwall/btree v1.7.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.13 // indirect
 	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
@@ -82,7 +81,7 @@ require (
 
 replace (
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-cometbft v1.3.1
-	github.com/ethereum/go-ethereum v1.14.7 => github.com/bnb-chain/bsc v1.4.12
+	github.com/ethereum/go-ethereum v1.14.7 => github.com/bnb-chain/bsc v1.4.13-0.20240906060612-d4879836c05c
 	github.com/grpc-ecosystem/grpc-gateway/v2 => github.com/prysmaticlabs/grpc-gateway/v2 v2.3.1-0.20210702154020-550e1cd83ec1
 	github.com/syndtr/goleveldb v1.0.1 => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.16

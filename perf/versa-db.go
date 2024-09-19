@@ -149,18 +149,55 @@ func (v *VersaDBRunner) UpdateStorage(address common.Address, keys []string, val
 		v.lock.RLock()
 		cache, exist := v.ownerStorageCache[ownerHash]
 		v.lock.RUnlock()
+		var versionNum int64
+		var stRoot common.Hash
+		var encodedData []byte
 		if !exist {
 			// should always exist in cache
 			fmt.Println("fail to version and root from cache")
-		} else {
-			versionNum := cache.version
-			stRoot := cache.stRoot
-			tHandler, err = v.db.OpenTree(v.stateHandler, versionNum, ownerHash, stRoot)
+			versionNum, encodedData, err = v.db.Get(v.rootTree, address.Bytes())
 			if err != nil {
-				return ethTypes.EmptyRootHash, fmt.Errorf("failed to open tree, version: %d, owner: %s, block height %d, err: %v", versionNum,
-					ownerHash.String(), v.version, err.Error())
+				return ethTypes.EmptyRootHash, err
 			}
+			//	fmt.Println("get account len:", len(encodedData), "version", versionNum, "owner: ", ownerHash)
+			account := new(ethTypes.StateAccount)
+			err = rlp.DecodeBytes(encodedData, account)
+			if err != nil {
+				fmt.Printf("Failed to decode RLP %v, db get CA account %s, version %d, val len:%d, versrion2 %d\n",
+					err, ownerHash,
+					v.version, len(encodedData), versionNum)
+				return ethTypes.EmptyRootHash, err
+			}
+			stRoot = account.Root
+			v.lock.Lock()
+			v.ownerStorageCache[ownerHash] = StorageCache{
+				version: versionNum,
+				stRoot:  stRoot,
+			}
+			// update the cache for read
+			v.lock.Unlock()
+		} else {
+			versionNum = cache.version
+			stRoot = cache.stRoot
+			/*
+				tHandler, err = v.db.OpenTree(v.stateHandler, versionNum, ownerHash, stRoot)
+				if err != nil {
+					return ethTypes.EmptyRootHash, fmt.Errorf("failed to open tree, version: %d, owner: %s, block height %d, err: %v", versionNum,
+						ownerHash.String(), v.version, err.Error())
+				}
+
+			*/
 		}
+		// Check if the owner is in the opened
+		tHandler, err = v.db.OpenTree(v.stateHandler, versionNum, ownerHash, stRoot)
+		if err != nil {
+			return ethTypes.EmptyRootHash, fmt.Errorf("failed to open tree, version: %d, owner: %s, block height %d, err: %v", versionNum,
+				ownerHash.String(), v.version, err.Error())
+		}
+		// update the handler cache for next read
+		v.handlerLock.Lock()
+		v.ownerHandlerCache[ownerHash] = tHandler
+		v.handlerLock.Unlock()
 	}
 	for i := 0; i < len(keys) && i < len(values); i++ {
 		start := time.Now()

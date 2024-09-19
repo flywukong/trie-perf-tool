@@ -145,7 +145,7 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 	}()
 	var wg sync.WaitGroup
 
-	wg.Add(1)
+	wg.Add(3)
 
 	go func() {
 		defer wg.Done()
@@ -210,7 +210,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 		default:
 			taskMap := NewDBTask()
 			var wg sync.WaitGroup
-			wg.Add(1)
+			wg.Add(3)
 
 			go func(task *DBTask) {
 				defer wg.Done()
@@ -626,9 +626,10 @@ func (d *DBRunner) UpdateDB(
 ) {
 
 	batchSize := int(d.perfConfig.BatchSize)
-	threadNum := d.perfConfig.NumJobs
 	var wg sync.WaitGroup
 	start := time.Now()
+
+	threadNum := d.perfConfig.NumJobs
 
 	smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
 
@@ -692,7 +693,7 @@ func (d *DBRunner) UpdateDB(
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
-			//		fmt.Println("account map key num:", len(accountMaps[index]), "height", d.blockHeight)
+			//		fmt.Println("account map key num:", len(accountMaps[index]), "height", d.blockHeight
 			for key, _ := range accountMaps[index] {
 				startRead := time.Now()
 				value, err := d.db.GetAccount(key)
@@ -853,6 +854,7 @@ func (d *DBRunner) UpdateDB(
 			}
 		}
 	}()
+
 	wg.Wait()
 }
 
