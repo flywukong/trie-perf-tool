@@ -709,7 +709,6 @@ func (d *DBRunner) UpdateDB(
 					d.stat.IncGetNotExist(1)
 				}
 			}
-
 		}(i)
 	}
 	wg.Wait()
