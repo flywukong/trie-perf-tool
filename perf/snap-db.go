@@ -252,6 +252,7 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 	stTrie, found := s.ownerStorageTrieCache[ownerHash]
 	s.trieCacheLock.RUnlock()
 	if !found {
+		fmt.Println("fail to find the tree handler in cache")
 		s.lock.RLock()
 		root, exist := s.ownerStorageCache[ownerHash]
 		s.lock.RUnlock()
