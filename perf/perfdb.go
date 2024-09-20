@@ -652,6 +652,7 @@ func (d *DBRunner) UpdateDB(
 
 	threadNum := d.perfConfig.NumJobs
 
+	start = time.Now()
 	smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
 
 	for i := 0; i < threadNum-1; i++ {
