@@ -318,6 +318,50 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 	return root, err
 }
 
+func (s *StateDBRunner) OpenStorageTries(addresses []common.Address) error {
+	var err error
+	for i := 0; i < len(addresses); i++ {
+		address := addresses[i]
+		ownerHash := crypto.Keccak256Hash(address.Bytes())
+
+		var stTrie *trie.StateTrie
+		s.trieCacheLock.RLock()
+		stTrie, found := s.ownerStorageTrieCache[ownerHash]
+		s.trieCacheLock.RUnlock()
+		if !found {
+			s.lock.RLock()
+			root, exist := s.ownerStorageCache[ownerHash]
+			s.lock.RUnlock()
+			if !exist {
+				encodedData, err := s.GetAccountFromTrie(address)
+				if err != nil {
+					return fmt.Errorf("fail to get storage trie root in cache1")
+				}
+				account := new(ethTypes.StateAccount)
+				err = rlp.DecodeBytes(encodedData, account)
+				if err != nil {
+					fmt.Printf("failed to decode RLP %v, db get CA account %s, val len:%d \n",
+						err, ownerHash.String(), len(encodedData))
+					return err
+				}
+				root = account.Root
+				fmt.Println("new state trie use CA root", root)
+			}
+
+			id := trie.StorageTrieID(s.stateRoot, ownerHash, root)
+			stTrie, err = trie.NewStateTrie(id, s.triedb)
+			if err != nil {
+				panic("err new state trie" + err.Error())
+			}
+
+			s.trieCacheLock.Lock()
+			s.ownerStorageTrieCache[ownerHash] = stTrie
+			s.trieCacheLock.Unlock()
+		}
+	}
+	return nil
+}
+
 func (s *StateDBRunner) RepairSnap(addresses []common.Address, largeTrieNum int) {
 	for i := 0; i < largeTrieNum; i++ {
 		encodedData, err := s.GetAccountFromTrie(addresses[i])

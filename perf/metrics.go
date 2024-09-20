@@ -33,6 +33,9 @@ var (
 	VersaDBAccPutLatency     = metrics.NewRegisteredTimer("versadb/account/put/latency", nil)
 	versaDBStoragePutLatency = metrics.NewRegisteredTimer("versadb/storage/put/latency", nil)
 
+	StateDBOpenTreeLatency = metrics.NewRegisteredTimer("statedb/opentree/latency", nil)
+	VersaDBOpenTreeLatency = metrics.NewRegisteredTimer("versadb/opentree/latency", nil)
+
 	stateTrieMemoryUsage = metrics.NewRegisteredGauge("statetrie/memory/usage", nil)
 	VeraTrieMemoryUsage  = metrics.NewRegisteredGauge("veraTrie/memory/usage", nil)
 	stateTrieGetTps      = metrics.NewRegisteredGauge("statetrie/get/tps", nil)

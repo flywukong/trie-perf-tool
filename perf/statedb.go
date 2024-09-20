@@ -55,6 +55,8 @@ type StateDatabase interface {
 	GetVersion() int64
 
 	GetCache() *fastcache.Cache
+
+	OpenStorageTries(addresses []common.Address) error
 }
 
 type TrieBatch interface {
