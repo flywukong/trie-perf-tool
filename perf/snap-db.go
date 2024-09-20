@@ -256,7 +256,7 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 		root, exist := s.ownerStorageCache[ownerHash]
 		s.lock.RUnlock()
 		if !exist {
-			encodedData, err := s.GetAccount(address)
+			encodedData, err := s.GetAccountFromTrie(address)
 			if err != nil {
 				return ethTypes.EmptyRootHash, fmt.Errorf("fail to get storage trie root in cache1")
 			}
