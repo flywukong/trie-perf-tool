@@ -168,7 +168,7 @@ func (s *StateDBRunner) GetAccount(address common.Address) ([]byte, error) {
 }
 
 func (v *StateDBRunner) GetAccountFromTrie(address common.Address) ([]byte, error) {
-	return v.accTrie.MustGet(v.hashKey(address.Bytes())), nil
+	return v.accTrie.MustGet(address.Bytes()), nil
 }
 
 func (s *StateDBRunner) AddSnapAccount(address common.Address, acc *ethTypes.StateAccount) error {
@@ -256,7 +256,7 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 		root, exist := s.ownerStorageCache[ownerHash]
 		s.lock.RUnlock()
 		if !exist {
-			encodedData, err := s.GetAccountFromTrie(address)
+			encodedData, err := s.GetAccount(address)
 			if err != nil {
 				return ethTypes.EmptyRootHash, fmt.Errorf("fail to get storage trie root in cache1")
 			}
