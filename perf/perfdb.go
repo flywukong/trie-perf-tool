@@ -796,7 +796,7 @@ func (d *DBRunner) UpdateDB(
 			if err != nil {
 				fmt.Println("update storage err", err.Error())
 			}
-			microseconds := time.Since(startPut).Microseconds() / int64(len(newKeys))
+			microseconds = time.Since(startPut).Microseconds() / int64(len(newKeys))
 			if d.db.GetMPTEngine() == VERSADBEngine {
 				versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 			} else {

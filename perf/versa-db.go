@@ -191,7 +191,6 @@ func (v *VersaDBRunner) OpenStorageTries(addresses []common.Address) error {
 			v.handlerLock.Lock()
 			v.ownerHandlerCache[ownerHash] = tHandler
 			v.handlerLock.Unlock()
-			v.treeOpenLocks[ownerHash].Unlock()
 		}
 	}
 	return nil
