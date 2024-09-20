@@ -191,7 +191,6 @@ func (v *VersaDBRunner) OpenStorageTries(addresses []common.Address) error {
 			v.handlerLock.Lock()
 			v.ownerHandlerCache[ownerHash] = tHandler
 			v.handlerLock.Unlock()
-			v.treeOpenLocks[ownerHash].Unlock()
 		}
 	}
 	return nil
@@ -328,6 +327,7 @@ func (v *VersaDBRunner) GetStorage(address common.Address, key []byte) ([]byte, 
 	tHandler, found := v.ownerHandlerCache[ownerHash]
 	v.handlerLock.RUnlock()
 	if !found {
+		fmt.Println("fail to find the tree handler in cache")
 		var stRoot common.Hash
 		var versionNum int64
 		var encodedData []byte
