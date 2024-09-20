@@ -392,7 +392,7 @@ func (v *VersaDBRunner) tryGetTreeLock(ownerHash, stRoot common.Hash, versionNum
 	if found {
 		return &tHandler, nil
 	}
-	fmt.Println("trie open owner hash:", ownerHash)
+	//fmt.Println("trie open owner hash:", ownerHash)
 	getOpenTreeLock := v.treeOpenLocks[ownerHash].TryLock()
 	if !getOpenTreeLock {
 		fmt.Println("storage trie is opening :", ownerHash.String(), "version", versionNum,
