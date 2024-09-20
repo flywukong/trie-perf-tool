@@ -351,7 +351,7 @@ func genStorageTrieKey(ownerHash common.Hash, startIndex, size uint64) (addresse
 				fmt.Println("numbyetes", string(numbytes), "owner hash", ownerHash.String(), "key", string(key),
 					"trie key len", len([]byte(addresses[i])))
 			}
-		
+
 		*/
 
 	}

@@ -241,7 +241,7 @@ func main() {
 				Name:        "rw_ratio",
 				Aliases:     []string{"rr"},
 				Usage:       "write and read ratio",
-				Value:       0.4,
+				Value:       0.01,
 				Destination: &config.RwRatio,
 			},
 		},

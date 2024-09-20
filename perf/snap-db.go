@@ -164,7 +164,10 @@ func (s *StateDBRunner) GetAccount(address common.Address) ([]byte, error) {
 		return blob, nil
 	}
 	snapshotCleanAccountMissMeter.Mark(1)
-	return rawdb.ReadAccountSnapshot(s.diskdb, common.BytesToHash(accHash)), nil
+	data := rawdb.ReadAccountSnapshot(s.diskdb, common.BytesToHash(accHash))
+	//	rawdb.WriteAccountSnapshot(snapDB, accHash, data)
+	s.cache.Set(accHash[:], data)
+	return data, nil
 }
 
 func (v *StateDBRunner) GetAccountFromTrie(address common.Address) ([]byte, error) {
@@ -239,7 +242,10 @@ func (s *StateDBRunner) GetStorage(address common.Address, key []byte) ([]byte, 
 		return blob, nil
 	}
 	snapshotCleanStorageMissMeter.Mark(1)
-	return rawdb.ReadStorageSnapshot(s.diskdb, common.BytesToHash(accHash), storageHash), nil
+	data := rawdb.ReadStorageSnapshot(s.diskdb, common.BytesToHash(accHash), storageHash)
+
+	s.cache.Set(cachekey, data)
+	return data, nil
 }
 
 // UpdateStorage  update batch k,v of storage trie
@@ -252,6 +258,7 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 	stTrie, found := s.ownerStorageTrieCache[ownerHash]
 	s.trieCacheLock.RUnlock()
 	if !found {
+		fmt.Println("fail to find the tree handler in cache")
 		s.lock.RLock()
 		root, exist := s.ownerStorageCache[ownerHash]
 		s.lock.RUnlock()
@@ -345,7 +352,7 @@ func (s *StateDBRunner) OpenStorageTries(addresses []common.Address) error {
 					return err
 				}
 				root = account.Root
-				fmt.Println("new state trie use CA root", root)
+				//	fmt.Println("new state trie use CA root", root)
 			}
 
 			id := trie.StorageTrieID(s.stateRoot, ownerHash, root)
