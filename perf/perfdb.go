@@ -233,7 +233,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 
 				accountList := genAccountKeyV2(d.perfConfig.AccountsInitSize, uint64(updateAccounts)/10*6)
 
-				for i := 0; i < updateAccounts/10*1; i++ {
+				for i := 0; i < updateAccounts/10*5; i++ {
 					//	d.accountKeyCache.Add(accKeys[i])
 					acc := new(types.StateAccount)
 					err := rlp.DecodeBytes(accounts[i], acc)
@@ -243,7 +243,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					taskMap.AccountTask[common.BytesToAddress(accountList[i][:])] = acc
 				}
 
-				for i := 0; i < updateAccounts/10*9; i++ {
+				for i := 0; i < updateAccounts/10*5; i++ {
 					randomkey, exist := d.accountKeyCache.RandomItem()
 					if exist {
 						acc := new(types.StateAccount)
@@ -299,7 +299,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					owner := randomStorageTrieList[i]
 					//	owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 					v := smallTrieTestData[owner]
-					for j := 0; j < storageUpdateNum/10*1; j++ {
+					for j := 0; j < storageUpdateNum/10*5; j++ {
 						// only cache 10000 for updating test
 						randomIndex := mathrand.Intn(len(v))
 						keys = append(keys, v[randomIndex])
@@ -307,7 +307,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					}
 
 					v2 := d.storageCache[owner]
-					for j := 0; j < storageUpdateNum/10*9; j++ {
+					for j := 0; j < storageUpdateNum/10*5; j++ {
 						// only cache 10000 for updating test
 						randomIndex := mathrand.Intn(len(v2))
 						keys = append(keys, v2[randomIndex])
@@ -346,7 +346,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				//fmt.Println("large tree cache key len ", len(v))
 				keys := make([]string, 0, largeStorageUpdateNum)
 				vals := make([]string, 0, largeStorageUpdateNum)
-				for j := 0; j < largeStorageUpdateNum/10*1; j++ {
+				for j := 0; j < largeStorageUpdateNum/10*5; j++ {
 					// only cache 10000 for updating test
 					randomIndex = mathrand.Intn(len(v))
 					value := generateValueV2(min_value_size, max_value_size)
@@ -355,7 +355,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				}
 
 				v2 := d.largeStorageCache[address]
-				for j := 0; j < largeStorageUpdateNum/10*9; j++ {
+				for j := 0; j < largeStorageUpdateNum/10*5; j++ {
 					// only cache 10000 for updating test
 					randomIndex = mathrand.Intn(len(v2))
 					value := generateValueV2(min_value_size, max_value_size)
