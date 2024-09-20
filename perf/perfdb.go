@@ -623,6 +623,13 @@ func (d *DBRunner) UpdateDB(
 	taskInfo DBTask,
 ) {
 
+	var snapDB ethdb.KeyValueStore
+	var cache *fastcache.Cache
+	if d.db.GetMPTEngine() == StateTrieEngine && d.db.GetFlattenDB() != nil && d.db.GetCache() != nil {
+		// simulate insert key to snap
+		snapDB = d.db.GetFlattenDB()
+		cache = d.db.GetCache()
+	}
 	batchSize := int(d.perfConfig.BatchSize)
 	var wg sync.WaitGroup
 	start := time.Now()
@@ -731,6 +738,16 @@ func (d *DBRunner) UpdateDB(
 					}
 					fmt.Println("fail to get account key")
 					d.stat.IncGetNotExist(1)
+				} else {
+					accHash := crypto.Keccak256Hash(key.Bytes())
+					data, err := rlp.EncodeToBytes(value)
+					if err != nil {
+						fmt.Println("decode account err when init")
+					}
+					if d.db.GetMPTEngine() == StateTrieEngine {
+						rawdb.WriteAccountSnapshot(snapDB, accHash, data)
+						cache.Set(accHash[:], data)
+					}
 				}
 			}
 		}(i)
@@ -744,14 +761,6 @@ func (d *DBRunner) UpdateDB(
 		VeraDBGetTps.Update(int64(float64(batchSize) / float64(d.rDuration.Microseconds()) * 1000))
 	} else {
 		stateDBGetTps.Update(int64(float64(batchSize) / float64(d.rDuration.Microseconds()) * 1000))
-	}
-
-	var snapDB ethdb.KeyValueStore
-	var cache *fastcache.Cache
-	if d.db.GetMPTEngine() == StateTrieEngine && d.db.GetFlattenDB() != nil && d.db.GetCache() != nil {
-		// simulate insert key to snap
-		snapDB = d.db.GetFlattenDB()
-		cache = d.db.GetCache()
 	}
 
 	wg.Add(2)
@@ -809,6 +818,7 @@ func (d *DBRunner) UpdateDB(
 		updateKeyNum := int(float64(len(taskInfo.AccountTask)) * ratio)
 		num := 0
 		for key, value := range taskInfo.AccountTask {
+			num++
 			if num > updateKeyNum {
 				break
 			}
@@ -831,9 +841,9 @@ func (d *DBRunner) UpdateDB(
 		d.totalWriteCost += d.wDuration
 
 		if d.db.GetMPTEngine() == VERSADBEngine {
-			VeraDBPutTps.Update(int64(float64(batchSize) / float64(d.wDuration.Microseconds()) * 1000))
+			VeraDBPutTps.Update(int64(float64(batchSize) * d.perfConfig.RwRatio / float64(d.wDuration.Microseconds()) * 1000))
 		} else {
-			stateDBPutTps.Update(int64(float64(batchSize) / float64(d.wDuration.Microseconds()) * 1000))
+			stateDBPutTps.Update(int64(float64(batchSize) * d.perfConfig.RwRatio / float64(d.wDuration.Microseconds()) * 1000))
 		}
 	}()
 
