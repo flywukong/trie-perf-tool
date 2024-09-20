@@ -28,6 +28,7 @@ type VersaDBRunner struct {
 	lock              sync.RWMutex
 	treeOpenLocks     map[common.Hash]*sync.Mutex
 	diskVersion       int64
+	updateLock        sync.Mutex
 	//	storageOwners     []common.Hash // Global slice for storage owners
 }
 
@@ -191,7 +192,6 @@ func (v *VersaDBRunner) OpenStorageTries(addresses []common.Address) error {
 			v.handlerLock.Lock()
 			v.ownerHandlerCache[ownerHash] = tHandler
 			v.handlerLock.Unlock()
-			v.treeOpenLocks[ownerHash].Unlock()
 		}
 	}
 	return nil
@@ -241,16 +241,8 @@ func (v *VersaDBRunner) UpdateStorage(address common.Address, keys []string, val
 		} else {
 			versionNum = cache.version
 			stRoot = cache.stRoot
-			/*
-				tHandler, err = v.db.OpenTree(v.stateHandler, versionNum, ownerHash, stRoot)
-				if err != nil {
-					return ethTypes.EmptyRootHash, fmt.Errorf("failed to open tree, version: %d, owner: %s, block height %d, err: %v", versionNum,
-						ownerHash.String(), v.version, err.Error())
-				}
-
-			*/
 		}
-		// Check if the owner is in the opened
+		// Check if the owner is in the openedver
 		tHandler, err = v.db.OpenTree(v.stateHandler, versionNum, ownerHash, stRoot)
 		if err != nil {
 			return ethTypes.EmptyRootHash, fmt.Errorf("failed to open tree, version: %d, owner: %s, block height %d, err: %v", versionNum,
@@ -279,10 +271,12 @@ func (v *VersaDBRunner) UpdateStorage(address common.Address, keys []string, val
 	acc := &ethTypes.StateAccount{Nonce: nonce, Balance: balance,
 		Root: hash, CodeHash: generateCodeHash(address.Bytes()).Bytes()}
 
+	v.updateLock.Lock()
 	err = v.UpdateAccount(address, acc)
 	if err != nil {
 		panic(fmt.Sprintf("failed add account of owner version: %d, owner: %d, err: %s", version, ownerHash, err.Error()))
 	}
+	v.updateLock.Unlock()
 
 	// handler is unuseful after commit
 	v.handlerLock.Lock()
@@ -322,12 +316,17 @@ func (v *VersaDBRunner) UpdateAccount(address common.Address, account *ethTypes.
 	return v.db.Put(v.rootTree, address.Bytes(), data)
 }
 
+func (v *VersaDBRunner) GetStorageFromTrie(address common.Address, key []byte) ([]byte, error) {
+	return v.GetStorage(address, key)
+}
+
 func (v *VersaDBRunner) GetStorage(address common.Address, key []byte) ([]byte, error) {
 	ownerHash := crypto.Keccak256Hash(address.Bytes())
 	v.handlerLock.RLock()
 	tHandler, found := v.ownerHandlerCache[ownerHash]
 	v.handlerLock.RUnlock()
 	if !found {
+		fmt.Println("fail to find the tree handler in cache")
 		var stRoot common.Hash
 		var versionNum int64
 		var encodedData []byte

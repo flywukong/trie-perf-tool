@@ -38,6 +38,8 @@ type StateDatabase interface {
 
 	GetStorage(address common.Address, key []byte) ([]byte, error)
 
+	GetStorageFromTrie(address common.Address, key []byte) ([]byte, error)
+
 	UpdateStorage(address common.Address, keys []string, value []string) (common.Hash, error)
 
 	Commit() (common.Hash, error)

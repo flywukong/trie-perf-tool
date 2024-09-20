@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/bnb-chain/versioned-state-database/store"
 	versaTree "github.com/bnb-chain/versioned-state-database/tree"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,13 +12,16 @@ type VersaTrie struct {
 }
 
 func OpenVersaTrie(version int64, rootHash []byte) *VersaTrie {
-	store, _, _, err := store.Open("test-versa-trie", &store.Options{
-		//	PageDecoder: &versaTree.PageDecoder{},
-	})
-	if err != nil {
-		panic(err.Error())
-	}
-	t := versaTree.OpenTree(common.Hash{}, version, rootHash, false, store)
+	/*
+		store, _, _, err := store.Open("test-versa-trie", &store.Options{
+			//	PageDecoder: &versaTree.PageDecoder{},
+		})
+		if err != nil {
+			panic(err.Error())
+		}
+
+	*/
+	t := versaTree.OpenTree(common.Hash{}, version, rootHash, false, nil)
 	return &VersaTrie{
 		trie: t,
 	}

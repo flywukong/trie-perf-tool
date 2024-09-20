@@ -35,6 +35,7 @@ type StateDBRunner struct {
 	ownerStorageCache     map[common.Hash]common.Hash
 	lock                  sync.RWMutex
 	trieCacheLock         sync.RWMutex
+	updatelock            sync.Mutex
 	ownerStorageTrieCache map[common.Hash]*trie.StateTrie
 	cache                 *fastcache.Cache
 }
@@ -164,7 +165,10 @@ func (s *StateDBRunner) GetAccount(address common.Address) ([]byte, error) {
 		return blob, nil
 	}
 	snapshotCleanAccountMissMeter.Mark(1)
-	return rawdb.ReadAccountSnapshot(s.diskdb, common.BytesToHash(accHash)), nil
+	data := rawdb.ReadAccountSnapshot(s.diskdb, common.BytesToHash(accHash))
+	//	rawdb.WriteAccountSnapshot(snapDB, accHash, data)
+	s.cache.Set(accHash[:], data)
+	return data, nil
 }
 
 func (v *StateDBRunner) GetAccountFromTrie(address common.Address) ([]byte, error) {
@@ -239,7 +243,52 @@ func (s *StateDBRunner) GetStorage(address common.Address, key []byte) ([]byte, 
 		return blob, nil
 	}
 	snapshotCleanStorageMissMeter.Mark(1)
-	return rawdb.ReadStorageSnapshot(s.diskdb, common.BytesToHash(accHash), storageHash), nil
+	data := rawdb.ReadStorageSnapshot(s.diskdb, common.BytesToHash(accHash), storageHash)
+
+	s.cache.Set(cachekey, data)
+	return data, nil
+}
+
+func (s *StateDBRunner) GetStorageFromTrie(address common.Address, key []byte) ([]byte, error) {
+	var err error
+	ownerHash := crypto.Keccak256Hash(address.Bytes())
+	// try to get version and root from cache first
+	var stTrie *trie.StateTrie
+	s.trieCacheLock.RLock()
+	stTrie, found := s.ownerStorageTrieCache[ownerHash]
+	s.trieCacheLock.RUnlock()
+	if !found {
+		fmt.Println("fail to find the tree handler in cache")
+		s.lock.RLock()
+		root, exist := s.ownerStorageCache[ownerHash]
+		s.lock.RUnlock()
+		if !exist {
+			encodedData, err := s.GetAccount(address)
+			if err != nil {
+				return nil, fmt.Errorf("fail to get storage trie root in cache1")
+			}
+			account := new(ethTypes.StateAccount)
+			err = rlp.DecodeBytes(encodedData, account)
+			if err != nil {
+				fmt.Printf("failed to decode RLP %v, db get CA account %s, val len:%d \n",
+					err, ownerHash.String(), len(encodedData))
+				return nil, err
+			}
+			root = account.Root
+			fmt.Println("new state trie use CA root", root)
+		}
+
+		id := trie.StorageTrieID(s.stateRoot, ownerHash, root)
+		stTrie, err = trie.NewStateTrie(id, s.triedb)
+		if err != nil {
+			panic("err new state trie" + err.Error())
+		}
+
+		s.trieCacheLock.Lock()
+		s.ownerStorageTrieCache[ownerHash] = stTrie
+		s.trieCacheLock.Unlock()
+	}
+	return stTrie.GetStorage(address, key)
 }
 
 // UpdateStorage  update batch k,v of storage trie
@@ -252,6 +301,7 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 	stTrie, found := s.ownerStorageTrieCache[ownerHash]
 	s.trieCacheLock.RUnlock()
 	if !found {
+		fmt.Println("fail to find the tree handler in cache")
 		s.lock.RLock()
 		root, exist := s.ownerStorageCache[ownerHash]
 		s.lock.RUnlock()
@@ -297,13 +347,11 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 	if err != nil {
 		return ethTypes.EmptyRootHash, err
 	}
+	s.updatelock.Lock()
 	if nodes != nil {
 		s.nodes.Merge(nodes)
 	}
 
-	s.lock.Lock()
-	s.ownerStorageCache[ownerHash] = root
-	s.lock.Unlock()
 	// update the CA account on root tree
 	nonce, balance := getRandomBalance()
 	acc := &ethTypes.StateAccount{Nonce: nonce, Balance: balance,
@@ -313,7 +361,12 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 	if accErr != nil {
 		panic("add count err" + accErr.Error())
 	}
+	s.updatelock.Unlock()
+
 	s.AddSnapAccount(address, acc)
+	s.lock.Lock()
+	s.ownerStorageCache[ownerHash] = root
+	s.lock.Unlock()
 
 	return root, err
 }
@@ -345,7 +398,7 @@ func (s *StateDBRunner) OpenStorageTries(addresses []common.Address) error {
 					return err
 				}
 				root = account.Root
-				fmt.Println("new state trie use CA root", root)
+				//	fmt.Println("new state trie use CA root", root)
 			}
 
 			id := trie.StorageTrieID(s.stateRoot, ownerHash, root)
