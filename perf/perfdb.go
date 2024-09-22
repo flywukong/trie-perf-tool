@@ -938,7 +938,7 @@ func (d *DBRunner) InitSingleStorageTrie(
 	if firstInsert {
 		v, err2 := d.db.GetAccount(address)
 		if err2 == nil && len(v) > 0 {
-			fmt.Println("already exit the account of storage trie", address)
+			fmt.Println("already exit the account of storage trie", crypto.Keccak256Hash(address.Bytes()))
 		}
 		// add new storage
 		err = d.db.AddStorage(address, value.Keys, value.Vals)
