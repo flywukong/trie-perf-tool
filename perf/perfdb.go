@@ -442,7 +442,7 @@ func (d *DBRunner) InitSmallStorageTrie() []common.Hash {
 		}
 	}
 
-	for i := 100; i < int(CATrieNum-d.perfConfig.LargeTrieNum); i++ {
+	for i := 105; i < int(CATrieNum-d.perfConfig.LargeTrieNum); i++ {
 		address := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 		ownerHash := crypto.Keccak256Hash(address.Bytes())
 		//ownerHash := d.storageOwnerList[i+MaxLargeStorageTrieNum]
