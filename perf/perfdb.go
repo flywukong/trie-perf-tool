@@ -112,7 +112,7 @@ func (d *DBRunner) Run(ctx context.Context) {
 
 		//	d.InitLargeStorageTries()
 		fmt.Println("init the large tries finish")
-
+		d.db.RepairSnap(d.storageOwnerList, int(d.perfConfig.LargeTrieNum))
 		d.InitSmallStorageTrie()
 		fmt.Println("init small trie finish")
 
@@ -936,7 +936,6 @@ func (d *DBRunner) InitSingleStorageTrie(
 		v, err2 := d.db.GetAccount(address)
 		if err2 == nil && len(v) > 0 {
 			fmt.Println("already exit the account of storage trie", address)
-			return
 		}
 		// add new storage
 		err = d.db.AddStorage(address, value.Keys, value.Vals)
