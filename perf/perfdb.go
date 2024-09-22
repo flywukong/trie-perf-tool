@@ -10,11 +10,9 @@ import (
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/holiman/uint256"
 )
 
 type DBRunner struct {
@@ -92,14 +90,18 @@ func (d *DBRunner) Run(ctx context.Context) {
 		diskVersion := d.db.GetVersion()
 		fmt.Println("disk version is", diskVersion)
 
-		accSize := d.perfConfig.AccountsInitSize
-		accBatch := d.perfConfig.AccountsBlocks
-		accPerBatch := accSize / accBatch
+		/*
+			accSize := d.perfConfig.AccountsInitSize
+			accBatch := d.perfConfig.AccountsBlocks
+			accPerBatch := accSize / accBatch
 
-		for i := uint64(0); i < d.perfConfig.AccountsBlocks; i++ {
-			startIndex := i * accPerBatch
-			d.InitAccount(i, startIndex, accPerBatch)
-		}
+
+			for i := uint64(0); i < d.perfConfig.AccountsBlocks; i++ {
+				startIndex := i * accPerBatch
+				d.InitAccount(i, startIndex, accPerBatch)
+			}
+
+		*/
 
 		// generate the storage owners, the first two owner is the large storage and
 		// the others are small trie
@@ -108,7 +110,7 @@ func (d *DBRunner) Run(ctx context.Context) {
 			d.storageOwnerList[i] = common.BytesToAddress(ownerList[i])
 		}
 
-		d.InitLargeStorageTries()
+		//	d.InitLargeStorageTries()
 		fmt.Println("init the large tries finish")
 
 		d.InitSmallStorageTrie()
@@ -145,27 +147,30 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 	}()
 	var wg sync.WaitGroup
 
-	wg.Add(3)
+	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
-		for i := uint64(0); i < largeTrieNum; i++ {
-			owner := d.storageOwnerList[i]
-			d.largeStorageTrie[i] = owner
-			ownerHash := crypto.Keccak256Hash(owner.Bytes())
-			largeStorageInitSize := d.perfConfig.StorageTrieSize
+	/*
+		go func() {
+			defer wg.Done()
+			for i := uint64(0); i < largeTrieNum; i++ {
+				owner := d.storageOwnerList[i]
+				d.largeStorageTrie[i] = owner
+				ownerHash := crypto.Keccak256Hash(owner.Bytes())
+				largeStorageInitSize := d.perfConfig.StorageTrieSize
 
-			index := mathrand.Intn(5)
-			startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
-			endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
-			middleRangeStart := startRange + (endRange-startRange)/4
-			middleRangeEnd := endRange - (endRange-startRange)/4
-			randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+				index := mathrand.Intn(5)
+				startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
+				endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
+				middleRangeStart := startRange + (endRange-startRange)/4
+				middleRangeEnd := endRange - (endRange-startRange)/4
+				randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 
-			d.largeStorageCache[owner] = genStorageTrieKey(ownerHash, uint64(randomIndex), largeStorageInitSize/1000)
-		}
-		fmt.Println("update large storage cache finish")
-	}()
+				d.largeStorageCache[owner] = genStorageTrieKey(ownerHash, uint64(randomIndex), largeStorageInitSize/1000)
+			}
+			fmt.Println("update large storage cache finish")
+		}()
+
+	*/
 
 	go func() {
 		defer wg.Done()
@@ -188,16 +193,19 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 		fmt.Println("update small storage cache finish")
 	}()
 
-	go func() {
-		defer wg.Done()
-		// init the account key cache
-		adddresses := genAccountKeyV2(d.perfConfig.AccountsInitSize, AccountKeyCacheSize)
-		for i := 0; i < AccountKeyCacheSize; i++ {
-			//	d.accountKeyCache.Add(accKeys[i])
-			d.accountKeyCache.Add(string(adddresses[i][:]))
-		}
-		fmt.Println("update account cache finish")
-	}()
+	/*
+		go func() {
+			defer wg.Done()
+			// init the account key cache
+			adddresses := genAccountKeyV2(d.perfConfig.AccountsInitSize, AccountKeyCacheSize)
+			for i := 0; i < AccountKeyCacheSize; i++ {
+				//	d.accountKeyCache.Add(accKeys[i])
+				d.accountKeyCache.Add(string(adddresses[i][:]))
+			}
+			fmt.Println("update account cache finish")
+		}()
+
+	*/
 
 	wg.Wait()
 }
@@ -210,55 +218,56 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 		default:
 			taskMap := NewDBTask()
 			var wg sync.WaitGroup
-			wg.Add(3)
+			wg.Add(1)
 
-			go func(task *DBTask) {
-				defer wg.Done()
-				random := mathrand.New(mathrand.NewSource(0))
-				updateAccounts := int(batchSize) / 5
-				accounts := make([][]byte, updateAccounts)
-				for i := 0; i < updateAccounts; i++ {
-					var (
-						nonce = uint64(random.Int63())
-						root  = types.EmptyRootHash
-						code  = crypto.Keccak256(generateRandomBytes(20))
-					)
-					numBytes := random.Uint32() % 33 // [0, 32] bytes
-					balanceBytes := make([]byte, numBytes)
-					random.Read(balanceBytes)
-					balance := new(uint256.Int).SetBytes(balanceBytes)
-					data, _ := rlp.EncodeToBytes(&types.StateAccount{Nonce: nonce, Balance: balance, Root: root, CodeHash: code})
-					accounts[i] = data
-				}
-
-				accountList := genAccountKeyV2(d.perfConfig.AccountsInitSize, uint64(updateAccounts)/10*6)
-
-				for i := 0; i < updateAccounts/10*5; i++ {
-					//	d.accountKeyCache.Add(accKeys[i])
-					acc := new(types.StateAccount)
-					err := rlp.DecodeBytes(accounts[i], acc)
-					if err != nil {
-						fmt.Printf("Failed to decode RLP")
+			/*
+				go func(task *DBTask) {
+					defer wg.Done()
+					random := mathrand.New(mathrand.NewSource(0))
+					updateAccounts := int(batchSize) / 5
+					accounts := make([][]byte, updateAccounts)
+					for i := 0; i < updateAccounts; i++ {
+						var (
+							nonce = uint64(random.Int63())
+							root  = types.EmptyRootHash
+							code  = crypto.Keccak256(generateRandomBytes(20))
+						)
+						numBytes := random.Uint32() % 33 // [0, 32] bytes
+						balanceBytes := make([]byte, numBytes)
+						random.Read(balanceBytes)
+						balance := new(uint256.Int).SetBytes(balanceBytes)
+						data, _ := rlp.EncodeToBytes(&types.StateAccount{Nonce: nonce, Balance: balance, Root: root, CodeHash: code})
+						accounts[i] = data
 					}
-					taskMap.AccountTask[common.BytesToAddress(accountList[i][:])] = acc
-				}
 
-				for i := 0; i < updateAccounts/10*5; i++ {
-					randomkey, exist := d.accountKeyCache.RandomItem()
-					if exist {
+					accountList := genAccountKeyV2(d.perfConfig.AccountsInitSize, uint64(updateAccounts)/10*6)
+
+					for i := 0; i < updateAccounts/10*5; i++ {
+						//	d.accountKeyCache.Add(accKeys[i])
 						acc := new(types.StateAccount)
 						err := rlp.DecodeBytes(accounts[i], acc)
 						if err != nil {
 							fmt.Printf("Failed to decode RLP")
 						}
-						task.AccountTask[common.BytesToAddress([]byte(randomkey))] = acc
-						//	fmt.Println("set taskMap address", common.BytesToAddress(accountList[i][:]).String())
-					} else {
-						fmt.Println("fail to find test account in cache")
+						taskMap.AccountTask[common.BytesToAddress(accountList[i][:])] = acc
 					}
-				}
-			}(&taskMap)
 
+					for i := 0; i < updateAccounts/10*5; i++ {
+						randomkey, exist := d.accountKeyCache.RandomItem()
+						if exist {
+							acc := new(types.StateAccount)
+							err := rlp.DecodeBytes(accounts[i], acc)
+							if err != nil {
+								fmt.Printf("Failed to decode RLP")
+							}
+							task.AccountTask[common.BytesToAddress([]byte(randomkey))] = acc
+							//	fmt.Println("set taskMap address", common.BytesToAddress(accountList[i][:]).String())
+						} else {
+							fmt.Println("fail to find test account in cache")
+						}
+					}
+				}(&taskMap)
+			*/
 			min_value_size := d.perfConfig.MinValueSize
 			max_value_size := d.perfConfig.MaxValueSize
 
@@ -317,55 +326,55 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					task.SmallTrieTask[owner] = CAKeyValue{Keys: keys, Vals: vals}
 				}
 			}(&taskMap)
+			/*
+				go func(task *DBTask) {
+					defer wg.Done()
+					// large storage trie write 1/5 kv of storage
+					largeStorageUpdateNum := int(batchSize) / 5
+					largeTrieNum := int(d.perfConfig.LargeTrieNum)
+					if len(d.largeStorageTrie) != largeTrieNum {
+						panic("large tree is not right")
+					}
+					// random choose one large tree to read and write
+					index := mathrand.Intn(largeTrieNum)
+					//	k := d.largeStorageTrie[index]
+					address := d.storageOwnerList[index]
+					largeStorageCache := make(map[common.Address][]string)
 
-			go func(task *DBTask) {
-				defer wg.Done()
-				// large storage trie write 1/5 kv of storage
-				largeStorageUpdateNum := int(batchSize) / 5
-				largeTrieNum := int(d.perfConfig.LargeTrieNum)
-				if len(d.largeStorageTrie) != largeTrieNum {
-					panic("large tree is not right")
-				}
-				// random choose one large tree to read and write
-				index := mathrand.Intn(largeTrieNum)
-				//	k := d.largeStorageTrie[index]
-				address := d.storageOwnerList[index]
-				largeStorageCache := make(map[common.Address][]string)
+					id := mathrand.Intn(5)
+					startRange := (int(d.perfConfig.StorageTrieSize) / 5 * id)
+					endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (id + 1))
+					middleRangeStart := startRange + (endRange-startRange)/4
+					middleRangeEnd := endRange - (endRange-startRange)/4
+					randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 
-				id := mathrand.Intn(5)
-				startRange := (int(d.perfConfig.StorageTrieSize) / 5 * id)
-				endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (id + 1))
-				middleRangeStart := startRange + (endRange-startRange)/4
-				middleRangeEnd := endRange - (endRange-startRange)/4
-				randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
+					ownerHash := crypto.Keccak256Hash(address.Bytes())
+					largeStorageCache[address] = genStorageTrieKey(ownerHash, uint64(randomIndex), uint64(largeStorageUpdateNum))
 
-				ownerHash := crypto.Keccak256Hash(address.Bytes())
-				largeStorageCache[address] = genStorageTrieKey(ownerHash, uint64(randomIndex), uint64(largeStorageUpdateNum))
+					v := largeStorageCache[address]
+					//fmt.Println("large tree cache key len ", len(v))
+					keys := make([]string, 0, largeStorageUpdateNum)
+					vals := make([]string, 0, largeStorageUpdateNum)
+					for j := 0; j < largeStorageUpdateNum/10*5; j++ {
+						// only cache 10000 for updating test
+						randomIndex = mathrand.Intn(len(v))
+						value := generateValueV2(min_value_size, max_value_size)
+						keys = append(keys, v[randomIndex])
+						vals = append(vals, string(value))
+					}
 
-				v := largeStorageCache[address]
-				//fmt.Println("large tree cache key len ", len(v))
-				keys := make([]string, 0, largeStorageUpdateNum)
-				vals := make([]string, 0, largeStorageUpdateNum)
-				for j := 0; j < largeStorageUpdateNum/10*5; j++ {
-					// only cache 10000 for updating test
-					randomIndex = mathrand.Intn(len(v))
-					value := generateValueV2(min_value_size, max_value_size)
-					keys = append(keys, v[randomIndex])
-					vals = append(vals, string(value))
-				}
+					v2 := d.largeStorageCache[address]
+					for j := 0; j < largeStorageUpdateNum/10*5; j++ {
+						// only cache 10000 for updating test
+						randomIndex = mathrand.Intn(len(v2))
+						value := generateValueV2(min_value_size, max_value_size)
+						keys = append(keys, v2[randomIndex])
+						vals = append(vals, string(value))
+					}
 
-				v2 := d.largeStorageCache[address]
-				for j := 0; j < largeStorageUpdateNum/10*5; j++ {
-					// only cache 10000 for updating test
-					randomIndex = mathrand.Intn(len(v2))
-					value := generateValueV2(min_value_size, max_value_size)
-					keys = append(keys, v2[randomIndex])
-					vals = append(vals, string(value))
-				}
-
-				task.LargeTrieTask[address] = CAKeyValue{Keys: keys, Vals: vals}
-			}(&taskMap)
-
+					task.LargeTrieTask[address] = CAKeyValue{Keys: keys, Vals: vals}
+				}(&taskMap)
+			*/
 			d.taskChan <- taskMap
 		}
 	}
@@ -433,7 +442,7 @@ func (d *DBRunner) InitSmallStorageTrie() []common.Hash {
 		}
 	}
 
-	for i := 0; i < int(CATrieNum-d.perfConfig.LargeTrieNum); i++ {
+	for i := 100; i < int(CATrieNum-d.perfConfig.LargeTrieNum); i++ {
 		address := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 		ownerHash := crypto.Keccak256Hash(address.Bytes())
 		//ownerHash := d.storageOwnerList[i+MaxLargeStorageTrieNum]
@@ -688,71 +697,75 @@ func (d *DBRunner) UpdateDB(
 		}(i)
 	}
 
-	// use one thread to read a random large storage trie
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for owner, CAkeys := range taskInfo.LargeTrieTask {
-			for i := 0; i < len(CAkeys.Keys); i++ {
-				startRead := time.Now()
-				value, err := d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
-				if d.db.GetMPTEngine() == VERSADBEngine {
-					versaDBStorageGetLatency.Update(time.Since(startRead))
-				} else {
-					StateDBStorageGetLatency.Update(time.Since(startRead))
-				}
-				d.stat.IncGet(1)
-				if err != nil || value == nil {
-					if err != nil {
-						fmt.Println("fail to get large tree key", err.Error())
-					}
-					fmt.Println("fail to get large tree key")
-					d.stat.IncGetNotExist(1)
-				}
-			}
-		}
-	}()
-
-	wg.Wait()
-
-	//	fmt.Println("account task key num", len(taskInfo.AccountTask), "height", d.blockHeight)
-	accountMaps := splitAccountTask(taskInfo.AccountTask, threadNum)
-	//  read 1/5 kv of account
-	for i := 0; i < threadNum; i++ {
+	/*
+		// use one thread to read a random large storage trie
 		wg.Add(1)
-		go func(index int) {
+		go func() {
 			defer wg.Done()
-			//		fmt.Println("account map key num:", len(accountMaps[index]), "height", d.blockHeight
-			for key, _ := range accountMaps[index] {
-				startRead := time.Now()
-				value, err := d.db.GetAccount(key)
-				if d.db.GetMPTEngine() == VERSADBEngine {
-					VersaDBAccGetLatency.Update(time.Since(startRead))
-				} else {
-					StateDBAccGetLatency.Update(time.Since(startRead))
-				}
-				d.stat.IncGet(1)
-				if err != nil || value == nil {
-					if err != nil {
-						fmt.Println("fail to get account key", err.Error())
+			for owner, CAkeys := range taskInfo.LargeTrieTask {
+				for i := 0; i < len(CAkeys.Keys); i++ {
+					startRead := time.Now()
+					value, err := d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
+					if d.db.GetMPTEngine() == VERSADBEngine {
+						versaDBStorageGetLatency.Update(time.Since(startRead))
+					} else {
+						StateDBStorageGetLatency.Update(time.Since(startRead))
 					}
-					fmt.Println("fail to get account key")
-					d.stat.IncGetNotExist(1)
-				} else {
-					accHash := crypto.Keccak256Hash(key.Bytes())
-					data, err := rlp.EncodeToBytes(value)
-					if err != nil {
-						fmt.Println("decode account err when init")
-					}
-					if d.db.GetMPTEngine() == StateTrieEngine {
-						rawdb.WriteAccountSnapshot(snapDB, accHash, data)
-						cache.Set(accHash[:], data)
+					d.stat.IncGet(1)
+					if err != nil || value == nil {
+						if err != nil {
+							fmt.Println("fail to get large tree key", err.Error())
+						}
+						fmt.Println("fail to get large tree key")
+						d.stat.IncGetNotExist(1)
 					}
 				}
 			}
-		}(i)
-	}
+		}()
+	*/
 	wg.Wait()
+
+	/*
+		//	fmt.Println("account task key num", len(taskInfo.AccountTask), "height", d.blockHeight)
+		accountMaps := splitAccountTask(taskInfo.AccountTask, threadNum)
+		//  read 1/5 kv of account
+		for i := 0; i < threadNum; i++ {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				//		fmt.Println("account map key num:", len(accountMaps[index]), "height", d.blockHeight
+				for key, _ := range accountMaps[index] {
+					startRead := time.Now()
+					value, err := d.db.GetAccount(key)
+					if d.db.GetMPTEngine() == VERSADBEngine {
+						VersaDBAccGetLatency.Update(time.Since(startRead))
+					} else {
+						StateDBAccGetLatency.Update(time.Since(startRead))
+					}
+					d.stat.IncGet(1)
+					if err != nil || value == nil {
+						if err != nil {
+							fmt.Println("fail to get account key", err.Error())
+						}
+						fmt.Println("fail to get account key")
+						d.stat.IncGetNotExist(1)
+					} else {
+						accHash := crypto.Keccak256Hash(key.Bytes())
+						data, err := rlp.EncodeToBytes(value)
+						if err != nil {
+							fmt.Println("decode account err when init")
+						}
+						if d.db.GetMPTEngine() == StateTrieEngine {
+							rawdb.WriteAccountSnapshot(snapDB, accHash, data)
+							cache.Set(accHash[:], data)
+						}
+					}
+				}
+			}(i)
+		}
+		wg.Wait()
+
+	*/
 
 	d.rDuration = time.Since(start)
 	d.totalReadCost += d.rDuration
