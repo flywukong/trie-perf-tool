@@ -446,7 +446,7 @@ func (d *DBRunner) InitSmallStorageTrie() []common.Hash {
 		address := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 		ownerHash := crypto.Keccak256Hash(address.Bytes())
 		//ownerHash := d.storageOwnerList[i+MaxLargeStorageTrieNum]
-		fmt.Println("generate small trie, owner:", ownerHash)
+		fmt.Println("generate small trie, owner:", ownerHash, "address", address.String())
 		d.smallStorageTrie[i] = address
 		d.owners[i+MaxLargeStorageTrieNum] = ownerHash
 
@@ -461,6 +461,7 @@ func (d *DBRunner) InitSmallStorageTrie() []common.Hash {
 			}
 			keys := genStorageTrieKey(ownerHash, t*storageBatch, storageBatch)
 			if t == 0 {
+				fmt.Println("first init")
 				d.InitSingleStorageTrie(address, CAKeyValue{
 					Keys: keys, Vals: vals}, true)
 			} else {
@@ -938,7 +939,8 @@ func (d *DBRunner) InitSingleStorageTrie(
 	if firstInsert {
 		v, err2 := d.db.GetAccount(address)
 		if err2 == nil && len(v) > 0 {
-			fmt.Println("already exit the account of storage trie", crypto.Keccak256Hash(address.Bytes()))
+			fmt.Println("already exit the account of storage trie",
+				crypto.Keccak256Hash(address.Bytes()), "address", address.String())
 		}
 		// add new storage
 		err = d.db.AddStorage(address, value.Keys, value.Vals)
