@@ -265,6 +265,7 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 		if !exist {
 			encodedData, err := s.GetAccount(address)
 			if err != nil {
+				fmt.Printf("failed to get CA account %v\n", err)
 				return ethTypes.EmptyRootHash, fmt.Errorf("fail to get storage trie root in cache1")
 			}
 			account := new(ethTypes.StateAccount)

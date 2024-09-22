@@ -931,6 +931,7 @@ func (d *DBRunner) InitSingleStorageTrie(
 	}
 
 	var err error
+
 	if firstInsert {
 		v, err2 := d.db.GetAccount(address)
 		if err2 == nil && len(v) > 0 {
@@ -943,6 +944,12 @@ func (d *DBRunner) InitSingleStorageTrie(
 			fmt.Println("init storage err:", err.Error())
 		}
 	} else {
+		var addresses []common.Address
+		addresses = append(addresses, address)
+		err = d.db.OpenStorageTries(addresses)
+		if err != nil {
+			fmt.Println("opne storage trie err", err.Error())
+		}
 		startPut := time.Now()
 		_, err = d.db.UpdateStorage(address, value.Keys, value.Vals)
 		if err != nil {
