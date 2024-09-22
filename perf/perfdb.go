@@ -486,6 +486,9 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 	for {
 		select {
 		case taskInfo := <-d.taskChan:
+			if d.blockHeight > 3000 {
+				return
+			}
 			rwStart := time.Now()
 			startBlock := time.Now()
 			// read, put or delete keys
