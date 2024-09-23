@@ -656,6 +656,7 @@ func (d *DBRunner) UpdateDB(
 	} else {
 		StateDBOpenTreeLatency.Update(time.Duration(microseconds) * time.Microsecond)
 	}
+	threadNum := d.perfConfig.NumJobs
 	/*
 
 		threadNum := d.perfConfig.NumJobs
@@ -816,73 +817,93 @@ func (d *DBRunner) UpdateDB(
 		start = time.Now()
 		ratio := d.perfConfig.RwRatio
 		defer wg.Done()
-		// simulate update small Storage Trie
-		for owner, value := range taskInfo.SmallTrieTask {
-			startPut := time.Now()
-			// Calculate the number of elements to keep based on the ratio
-			updateKeyNum := int(float64(len(value.Keys)) * ratio)
 
-			Keys := value.Keys[:updateKeyNum]
-			Vals := value.Vals[:updateKeyNum]
-			// add new storage
-			_, err := d.db.UpdateStorage(owner, Keys, Vals)
-			if err != nil {
-				fmt.Println("update storage err", err.Error())
-			}
-			microseconds := time.Since(startPut).Microseconds() / int64(len(Keys))
-			if d.db.GetMPTEngine() == VERSADBEngine {
-				versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-			} else {
-				StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-			}
-			d.stat.IncPut(uint64(len(Keys)))
+		var wg2 sync.WaitGroup
+		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
+
+		for i := 0; i < threadNum-1; i++ {
+			wg2.Add(1)
+			go func(index int) {
+				defer wg2.Done()
+				for owner, value := range smallTrieMaps[index] {
+					startPut := time.Now()
+					// Calculate the number of elements to keep based on the ratio
+					updateKeyNum := int(float64(len(value.Keys)) * ratio)
+
+					Keys := value.Keys[:updateKeyNum]
+					Vals := value.Vals[:updateKeyNum]
+					// add new storage
+					_, err := d.db.UpdateStorage(owner, Keys, Vals)
+					if err != nil {
+						fmt.Println("update storage err", err.Error())
+					}
+					microseconds := time.Since(startPut).Microseconds() / int64(len(Keys))
+					if d.db.GetMPTEngine() == VERSADBEngine {
+						versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+					} else {
+						StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+					}
+					d.stat.IncPut(uint64(len(Keys)))
+				}
+			}(i)
 		}
 
-		// simulate update large Storage Trie
-		for owner, value := range taskInfo.LargeTrieTask {
-			// Calculate the number of elements to keep based on the ratio
-			updateKeyNum := int(float64(len(value.Keys)) * ratio)
+		// use one thread to read a random large storage trie
+		wg2.Add(1)
+		go func() {
+			defer wg2.Done()
+			// simulate update large Storage Trie
+			for owner, value := range taskInfo.LargeTrieTask {
+				// Calculate the number of elements to keep based on the ratio
+				updateKeyNum := int(float64(len(value.Keys)) * ratio)
 
-			// Create new slices based on the calculated number of elements
-			newKeys := value.Keys[:updateKeyNum]
-			newVals := value.Vals[:updateKeyNum]
+				// Create new slices based on the calculated number of elements
+				newKeys := value.Keys[:updateKeyNum]
+				newVals := value.Vals[:updateKeyNum]
 
-			startPut := time.Now()
-			// add new storage
-			_, err := d.db.UpdateStorage(owner, newKeys, newVals)
-			if err != nil {
-				fmt.Println("update storage err", err.Error())
+				startPut := time.Now()
+				// add new storage
+				_, err := d.db.UpdateStorage(owner, newKeys, newVals)
+				if err != nil {
+					fmt.Println("update storage err", err.Error())
+				}
+				microseconds = time.Since(startPut).Microseconds() / int64(len(newKeys))
+				if d.db.GetMPTEngine() == VERSADBEngine {
+					versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+				} else {
+					StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+				}
+				d.stat.IncPut(uint64(len(newKeys)))
 			}
-			microseconds = time.Since(startPut).Microseconds() / int64(len(newKeys))
-			if d.db.GetMPTEngine() == VERSADBEngine {
-				versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-			} else {
-				StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-			}
-			d.stat.IncPut(uint64(len(newKeys)))
+		}()
+		wg2.Wait()
+
+		//	fmt.Println("account task key num", len(taskInfo.AccountTask), "height", d.blockHeight)
+		accountMaps := splitAccountTask(taskInfo.AccountTask, threadNum)
+		//  read 1/5 kv of account
+		for i := 0; i < threadNum; i++ {
+			wg2.Add(1)
+			go func(index int) {
+				defer wg2.Done()
+				//		fmt.Println("account map key num:", len(accountMaps[index]), "height", d.blockHeight
+				for key, value := range accountMaps[index] {
+					startPut := time.Now()
+					err := d.db.UpdateAccount(key, value)
+					if err != nil {
+						fmt.Println("update account err", err.Error())
+					} else {
+						d.updateAccount++
+					}
+					if d.db.GetMPTEngine() == VERSADBEngine {
+						VersaDBAccPutLatency.Update(time.Since(startPut))
+					} else {
+						StateDBAccPutLatency.Update(time.Since(startPut))
+					}
+					d.stat.IncPut(1)
+				}
+			}(i)
 		}
-
-		updateKeyNum := int(float64(len(taskInfo.AccountTask)) * ratio)
-		num := 0
-		for key, value := range taskInfo.AccountTask {
-			num++
-			if num > updateKeyNum {
-				break
-			}
-			startPut := time.Now()
-			err := d.db.UpdateAccount(key, value)
-			if err != nil {
-				fmt.Println("update account err", err.Error())
-			} else {
-				d.updateAccount++
-			}
-			if d.db.GetMPTEngine() == VERSADBEngine {
-				VersaDBAccPutLatency.Update(time.Since(startPut))
-			} else {
-				StateDBAccPutLatency.Update(time.Since(startPut))
-			}
-			d.stat.IncPut(1)
-		}
+		wg2.Wait()
 
 		d.wDuration = time.Since(start)
 		d.totalWriteCost += d.wDuration
