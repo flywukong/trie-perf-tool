@@ -782,15 +782,6 @@ func (d *DBRunner) UpdateDB(
 					}
 					fmt.Println("fail to get account key")
 					d.stat.IncGetNotExist(1)
-				} else {
-					if d.db.GetMPTEngine() == StateTrieEngine {
-						accHash := crypto.Keccak256Hash(key.Bytes())
-						data, err := rlp.EncodeToBytes(value)
-						if err != nil {
-							fmt.Println("decode account err when init")
-						}
-						cache.Set(accHash[:], data)
-					}
 				}
 			}
 		}(i)
