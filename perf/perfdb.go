@@ -808,7 +808,7 @@ func (d *DBRunner) UpdateDB(
 			stateDBGetTps.Update(int64(float64(batchSize) / float64(d.rDuration.Microseconds()) * 1000))
 		}
 
-	
+
 	*/
 	wg.Add(2)
 
