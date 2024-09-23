@@ -660,38 +660,29 @@ func (d *DBRunner) UpdateDB(
 	threadNum := d.perfConfig.NumJobs
 
 	start = time.Now()
-	smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
-
-	for i := 0; i < threadNum-1; i++ {
-		wg.Add(1)
-		go func(index int) {
-			defer wg.Done()
-			for owner, CAKeys := range smallTrieMaps[index] {
-				for j := 0; j < len(CAKeys.Keys); j++ {
-					startRead := time.Now()
-					value, err := d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
-					if d.db.GetMPTEngine() == VERSADBEngine {
-						VersaDBAccGetLatency.Update(time.Since(startRead))
-					} else {
-						StateDBAccGetLatency.Update(time.Since(startRead))
+	if threadNum == 1 {
+		if d.blockHeight%100 == 0 {
+			fmt.Println("one thread read")
+		}
+		for owner, CAKeys := range taskInfo.SmallTrieTask {
+			for j := 0; j < len(CAKeys.Keys); j++ {
+				startRead := time.Now()
+				value, err := d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
+				if d.db.GetMPTEngine() == VERSADBEngine {
+					VersaDBAccGetLatency.Update(time.Since(startRead))
+				} else {
+					StateDBAccGetLatency.Update(time.Since(startRead))
+				}
+				d.stat.IncGet(1)
+				if err != nil || value == nil {
+					if err != nil {
+						fmt.Println("fail to get small trie key", err.Error())
 					}
-					d.stat.IncGet(1)
-					if err != nil || value == nil {
-						if err != nil {
-							fmt.Println("fail to get small trie key", err.Error())
-						}
-						fmt.Println("fail to get small trie key")
-						d.stat.IncGetNotExist(1)
-					}
+					fmt.Println("fail to get small trie key")
+					d.stat.IncGetNotExist(1)
 				}
 			}
-		}(i)
-	}
-
-	// use one thread to read a random large storage trie
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+		}
 		for owner, CAkeys := range taskInfo.LargeTrieTask {
 			for i := 0; i < len(CAkeys.Keys); i++ {
 				startRead := time.Now()
@@ -711,10 +702,63 @@ func (d *DBRunner) UpdateDB(
 				}
 			}
 		}
-	}()
+	} else {
+		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
 
-	wg.Wait()
+		for i := 0; i < threadNum-1; i++ {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				for owner, CAKeys := range smallTrieMaps[index] {
+					for j := 0; j < len(CAKeys.Keys); j++ {
+						startRead := time.Now()
+						value, err := d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
+						if d.db.GetMPTEngine() == VERSADBEngine {
+							VersaDBAccGetLatency.Update(time.Since(startRead))
+						} else {
+							StateDBAccGetLatency.Update(time.Since(startRead))
+						}
+						d.stat.IncGet(1)
+						if err != nil || value == nil {
+							if err != nil {
+								fmt.Println("fail to get small trie key", err.Error())
+							}
+							fmt.Println("fail to get small trie key")
+							d.stat.IncGetNotExist(1)
+						}
+					}
+				}
+			}(i)
+		}
 
+		// use one thread to read a random large storage trie
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for owner, CAkeys := range taskInfo.LargeTrieTask {
+				for i := 0; i < len(CAkeys.Keys); i++ {
+					startRead := time.Now()
+					value, err := d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
+					if d.db.GetMPTEngine() == VERSADBEngine {
+						versaDBStorageGetLatency.Update(time.Since(startRead))
+					} else {
+						StateDBStorageGetLatency.Update(time.Since(startRead))
+					}
+					d.stat.IncGet(1)
+					if err != nil || value == nil {
+						if err != nil {
+							fmt.Println("fail to get large tree key", err.Error())
+						}
+						fmt.Println("fail to get large tree key")
+						d.stat.IncGetNotExist(1)
+					}
+				}
+			}
+		}()
+
+		wg.Wait()
+
+	}
 	//	fmt.Println("account task key num", len(taskInfo.AccountTask), "height", d.blockHeight)
 	accountMaps := splitAccountTask(taskInfo.AccountTask, threadNum)
 	//  read 1/5 kv of account
