@@ -658,8 +658,6 @@ func (d *DBRunner) UpdateDB(
 	}
 	threadNum := d.perfConfig.NumJobs
 
-	threadNum := d.perfConfig.NumJobs
-
 	start = time.Now()
 	if threadNum == 1 {
 		if d.blockHeight%100 == 0 {
@@ -814,7 +812,7 @@ func (d *DBRunner) UpdateDB(
 		start = time.Now()
 		ratio := d.perfConfig.RwRatio
 		defer wg.Done()
-
+		
 		var wg2 sync.WaitGroup
 		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
 
