@@ -305,25 +305,26 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 	if err != nil {
 		return ethTypes.EmptyRootHash, err
 	}
+	s.updatelock.Lock()
 	if nodes != nil {
 		s.nodes.Merge(nodes)
 	}
 
-	s.lock.Lock()
-	s.ownerStorageCache[ownerHash] = root
-	s.lock.Unlock()
 	// update the CA account on root tree
 	nonce, balance := getRandomBalance()
 	acc := &ethTypes.StateAccount{Nonce: nonce, Balance: balance,
 		Root: root, CodeHash: generateCodeHash(address.Bytes()).Bytes()}
-
-	s.updatelock.Lock()
+	
 	accErr := s.UpdateAccount(address, acc)
 	if accErr != nil {
 		panic("add count err" + accErr.Error())
 	}
 	s.updatelock.Unlock()
+
 	s.AddSnapAccount(address, acc)
+	s.lock.Lock()
+	s.ownerStorageCache[ownerHash] = root
+	s.lock.Unlock()
 
 	return root, err
 }
