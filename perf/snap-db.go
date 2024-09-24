@@ -35,6 +35,7 @@ type StateDBRunner struct {
 	ownerStorageCache     map[common.Hash]common.Hash
 	lock                  sync.RWMutex
 	trieCacheLock         sync.RWMutex
+	updatelock            sync.Mutex
 	ownerStorageTrieCache map[common.Hash]*trie.StateTrie
 	cache                 *fastcache.Cache
 }
@@ -316,10 +317,12 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 	acc := &ethTypes.StateAccount{Nonce: nonce, Balance: balance,
 		Root: root, CodeHash: generateCodeHash(address.Bytes()).Bytes()}
 
+	s.updatelock.Lock()
 	accErr := s.UpdateAccount(address, acc)
 	if accErr != nil {
 		panic("add count err" + accErr.Error())
 	}
+	s.updatelock.Unlock()
 	s.AddSnapAccount(address, acc)
 
 	return root, err
