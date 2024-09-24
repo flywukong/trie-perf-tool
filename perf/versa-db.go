@@ -28,6 +28,7 @@ type VersaDBRunner struct {
 	lock              sync.RWMutex
 	treeOpenLocks     map[common.Hash]*sync.Mutex
 	diskVersion       int64
+	updateLock        sync.Mutex
 	//	storageOwners     []common.Hash // Global slice for storage owners
 }
 
@@ -278,10 +279,12 @@ func (v *VersaDBRunner) UpdateStorage(address common.Address, keys []string, val
 	acc := &ethTypes.StateAccount{Nonce: nonce, Balance: balance,
 		Root: hash, CodeHash: generateCodeHash(address.Bytes()).Bytes()}
 
+	v.updateLock.Lock()
 	err = v.UpdateAccount(address, acc)
 	if err != nil {
 		panic(fmt.Sprintf("failed add account of owner version: %d, owner: %d, err: %s", version, ownerHash, err.Error()))
 	}
+	v.updateLock.Unlock()
 
 	// handler is unuseful after commit
 	v.handlerLock.Lock()
