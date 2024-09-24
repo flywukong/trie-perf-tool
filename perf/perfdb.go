@@ -878,32 +878,21 @@ func (d *DBRunner) UpdateDB(
 		}()
 		wg2.Wait()
 
-		//	fmt.Println("account task key num", len(taskInfo.AccountTask), "height", d.blockHeight)
-		accountMaps := splitAccountTask(taskInfo.AccountTask, threadNum)
-		//  read 1/5 kv of account
-		for i := 0; i < threadNum; i++ {
-			wg2.Add(1)
-			go func(index int) {
-				defer wg2.Done()
-				//		fmt.Println("account map key num:", len(accountMaps[index]), "height", d.blockHeight
-				for key, value := range accountMaps[index] {
-					startPut := time.Now()
-					err := d.db.UpdateAccount(key, value)
-					if err != nil {
-						fmt.Println("update account err", err.Error())
-					} else {
-						d.updateAccount++
-					}
-					if d.db.GetMPTEngine() == VERSADBEngine {
-						VersaDBAccPutLatency.Update(time.Since(startPut))
-					} else {
-						StateDBAccPutLatency.Update(time.Since(startPut))
-					}
-					d.stat.IncPut(1)
-				}
-			}(i)
+		for key, value := range taskInfo.AccountTask {
+			startPut := time.Now()
+			err := d.db.UpdateAccount(key, value)
+			if err != nil {
+				fmt.Println("update account err", err.Error())
+			} else {
+				d.updateAccount++
+			}
+			if d.db.GetMPTEngine() == VERSADBEngine {
+				VersaDBAccPutLatency.Update(time.Since(startPut))
+			} else {
+				StateDBAccPutLatency.Update(time.Since(startPut))
+			}
+			d.stat.IncPut(1)
 		}
-		wg2.Wait()
 
 		d.wDuration = time.Since(start)
 		d.totalWriteCost += d.wDuration
