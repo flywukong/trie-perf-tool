@@ -812,7 +812,7 @@ func (d *DBRunner) UpdateDB(
 		start = time.Now()
 		ratio := d.perfConfig.RwRatio
 		defer wg.Done()
-		
+
 		var wg2 sync.WaitGroup
 		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
 
@@ -873,7 +873,10 @@ func (d *DBRunner) UpdateDB(
 		}()
 		wg2.Wait()
 
+		updateKeyNum := int(float64(len(taskInfo.AccountTask)) * ratio)
+		n := 0
 		for key, value := range taskInfo.AccountTask {
+			n++
 			startPut := time.Now()
 			err := d.db.UpdateAccount(key, value)
 			if err != nil {
@@ -885,6 +888,9 @@ func (d *DBRunner) UpdateDB(
 				VersaDBAccPutLatency.Update(time.Since(startPut))
 			} else {
 				StateDBAccPutLatency.Update(time.Since(startPut))
+			}
+			if n > updateKeyNum {
+				break
 			}
 			d.stat.IncPut(1)
 		}

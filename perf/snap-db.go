@@ -314,7 +314,7 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 	nonce, balance := getRandomBalance()
 	acc := &ethTypes.StateAccount{Nonce: nonce, Balance: balance,
 		Root: root, CodeHash: generateCodeHash(address.Bytes()).Bytes()}
-	
+
 	accErr := s.UpdateAccount(address, acc)
 	if accErr != nil {
 		panic("add count err" + accErr.Error())
