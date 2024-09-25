@@ -1056,7 +1056,8 @@ func (d *DBRunner) InitSingleStorageTrie(
 }
 
 func (d *DBRunner) trySleep() {
-	time.Sleep(time.Duration(d.perfConfig.SleepTime) * time.Millisecond)
+	// time.Sleep(time.Duration(d.perfConfig.SleepTime) * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 }
 
 func (d *DBRunner) isLargeStorageTrie(owner common.Address) bool {
