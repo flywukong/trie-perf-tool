@@ -39,7 +39,7 @@ type StorageCache struct {
 
 func OpenVersaDB(path string, version int64) *VersaDBRunner {
 	db, err := versaDB.NewVersaDB(path, &versaDB.VersaDBConfig{
-		FlushInterval:  1000,
+		FlushInterval:  700,
 		MaxStatesInMem: 128,
 	})
 	if err != nil {
@@ -241,16 +241,8 @@ func (v *VersaDBRunner) UpdateStorage(address common.Address, keys []string, val
 		} else {
 			versionNum = cache.version
 			stRoot = cache.stRoot
-			/*
-				tHandler, err = v.db.OpenTree(v.stateHandler, versionNum, ownerHash, stRoot)
-				if err != nil {
-					return ethTypes.EmptyRootHash, fmt.Errorf("failed to open tree, version: %d, owner: %s, block height %d, err: %v", versionNum,
-						ownerHash.String(), v.version, err.Error())
-				}
-
-			*/
 		}
-		// Check if the owner is in the opened
+		// Check if the owner is in the openedver
 		tHandler, err = v.db.OpenTree(v.stateHandler, versionNum, ownerHash, stRoot)
 		if err != nil {
 			return ethTypes.EmptyRootHash, fmt.Errorf("failed to open tree, version: %d, owner: %s, block height %d, err: %v", versionNum,

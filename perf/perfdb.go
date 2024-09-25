@@ -525,6 +525,7 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 					"total cost", d.totalBlockDurations.Seconds(), "s",
 					"block height", d.blockHeight)
 			}
+
 			d.updateAccount = 0
 			BlockHeight.Update(int64(d.blockHeight))
 
