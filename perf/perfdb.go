@@ -490,6 +490,16 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 			}
 			// compute hash
 			commtStart := time.Now()
+			d.db.Hash()
+			d.hashDuration = time.Since(commtStart)
+
+			if d.db.GetMPTEngine() == VERSADBEngine {
+				VeraDBHashLatency.Update(d.hashDuration)
+			} else {
+				stateDBHashLatency.Update(d.commitDuration)
+			}
+			
+			commtStart = time.Now()
 			if _, err := d.db.Commit(); err != nil {
 				panic("failed to commit: " + err.Error())
 			}
