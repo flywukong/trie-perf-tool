@@ -267,20 +267,31 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				smallTrieTestData := make(map[common.Address][]string)
 				// small storage trie write 3/5 kv of storage
 				var randomStorageTrieList []common.Address
-				// random choose 29 small tries
-				if len(d.smallStorageTrie) > SmallTriesReadInBlock {
-					randomStorageTrieList = make([]common.Address, SmallTriesReadInBlock)
-					perm := mathrand.Perm(len(d.smallStorageTrie))
-					for i := 0; i < SmallTriesReadInBlock; i++ {
-						randomStorageTrieList[i] = d.smallStorageTrie[perm[i]]
+
+				/*
+					// random choose 29 small tries
+					if len(d.smallStorageTrie) > SmallTriesReadInBlock {
+						fmt.Println("generate ", SmallTriesReadInBlock, "tries")
+						randomStorageTrieList = make([]common.Address, SmallTriesReadInBlock)
+						perm := mathrand.Perm(len(d.smallStorageTrie))
+						for i := 0; i < SmallTriesReadInBlock; i++ {
+							randomStorageTrieList[i] = d.smallStorageTrie[perm[i]]
+						}
+					} else {
+						randomStorageTrieList = d.smallStorageTrie
 					}
-				} else {
-					randomStorageTrieList = d.smallStorageTrie
+
+				*/
+				fmt.Println("generate ", SmallTriesReadInBlock, "tries")
+				randomStorageTrieList = make([]common.Address, SmallTriesReadInBlock)
+				perm := mathrand.Perm(len(d.smallStorageTrie))
+				for i := 0; i < SmallTriesReadInBlock; i++ {
+					randomStorageTrieList[i] = d.smallStorageTrie[perm[i]]
 				}
 
 				smallStorageInitSize := d.perfConfig.SmallStorageSize
 
-				storageUpdateNum := int(batchSize) / 5 * 3 / len(randomStorageTrieList)
+				storageUpdateNum := int(batchSize)/5*3/len(randomStorageTrieList) + 5
 				for i := 0; i < len(randomStorageTrieList); i++ {
 					owner := randomStorageTrieList[i]
 					index := mathrand.Intn(5)
@@ -833,7 +844,7 @@ func (d *DBRunner) UpdateDB(
 					if err != nil {
 						fmt.Println("update storage err", err.Error())
 					}
-					microseconds := time.Since(startPut).Microseconds() / int64(len(Keys))
+					microseconds = time.Since(startPut).Microseconds() / int64(len(Keys))
 					if d.db.GetMPTEngine() == VERSADBEngine {
 						versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 					} else {
