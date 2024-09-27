@@ -325,7 +325,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 						keys = append(keys, v2[randomIndex])
 						vals = append(vals, string(generateValueV2(min_value_size, max_value_size)))
 					}
-
+					fmt.Println("set small trie num", "keys", len(keys), "vals", len(vals))
 					task.SmallTrieTask[owner] = CAKeyValue{Keys: keys, Vals: vals}
 				}
 			}(&taskMap)
