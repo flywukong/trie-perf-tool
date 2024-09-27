@@ -836,7 +836,7 @@ func (d *DBRunner) UpdateDB(
 					startPut := time.Now()
 					// Calculate the number of elements to keep based on the ratio
 					updateKeyNum := int(float64(len(value.Keys)) * ratio)
-
+					fmt.Println("len keys", float64(len(value.Keys)), "update num", updateKeyNum)
 					Keys := value.Keys[:updateKeyNum]
 					Vals := value.Vals[:updateKeyNum]
 					// add new storage
