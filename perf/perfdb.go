@@ -302,11 +302,9 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 					ownerHash := crypto.Keccak256Hash(owner.Bytes())
 					smallTrieTestData[owner] = genStorageTrieKey(ownerHash, uint64(randomIndex), uint64(storageUpdateNum))
-					fmt.Println("owne len", ownerHash, len(smallTrieTestData[owner]))
 				}
 
 				for i := 0; i < len(randomStorageTrieList); i++ {
-					fmt.Println("index", i, "update num", storageUpdateNum)
 					keys := make([]string, 0, storageUpdateNum)
 					vals := make([]string, 0, storageUpdateNum)
 					owner := randomStorageTrieList[i]
@@ -326,7 +324,6 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 						keys = append(keys, v2[randomIndex])
 						vals = append(vals, string(generateValueV2(min_value_size, max_value_size)))
 					}
-					fmt.Println("set small trie num", "keys", len(keys), "vals", len(vals))
 					task.SmallTrieTask[owner] = CAKeyValue{Keys: keys, Vals: vals}
 				}
 			}(&taskMap)
@@ -828,21 +825,8 @@ func (d *DBRunner) UpdateDB(
 		defer wg.Done()
 
 		var wg2 sync.WaitGroup
-		fmt.Println("task len", len(taskInfo.SmallTrieTask))
-		for k, vals := range taskInfo.SmallTrieTask {
-			fmt.Println("address123", k, "lens ", len(vals.Keys))
-		}
 
 		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
-
-		for i := 0; i < threadNum-1; i++ {
-			for _, value := range smallTrieMaps[i] {
-				//	startPut := time.Now()
-				// Calculate the number of elements to keep based on the ratio
-				//updateKeyNum := int(float64(len(value.Keys)) * ratio)
-				fmt.Println("len keys11", float64(len(value.Keys)), "index", i)
-			}
-		}
 
 		for i := 0; i < threadNum-1; i++ {
 			wg2.Add(1)
@@ -852,7 +836,6 @@ func (d *DBRunner) UpdateDB(
 					startPut := time.Now()
 					// Calculate the number of elements to keep based on the ratio
 					updateKeyNum := int(float64(len(value.Keys)) * ratio)
-					fmt.Println("len keys", float64(len(value.Keys)), "update num", updateKeyNum)
 					Keys := value.Keys[:updateKeyNum]
 					Vals := value.Vals[:updateKeyNum]
 					// add new storage
