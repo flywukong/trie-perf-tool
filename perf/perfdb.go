@@ -312,7 +312,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					owner := randomStorageTrieList[i]
 					//	owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 					v := smallTrieTestData[owner]
-					for j := 0; j < storageUpdateNum/10*5; j++ {
+					for j := 0; j < int(float64(storageUpdateNum)/10.0*5.0)+1; j++ {
 						// only cache 10000 for updating test
 						randomIndex := mathrand.Intn(len(v))
 						keys = append(keys, v[randomIndex])
@@ -320,7 +320,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					}
 
 					v2 := d.storageCache[owner]
-					for j := 0; j < storageUpdateNum/10*5; j++ {
+					for j := 0; j < int(float64(storageUpdateNum)/10.0*5.0)+1; j++ {
 						// only cache 10000 for updating test
 						randomIndex := mathrand.Intn(len(v2))
 						keys = append(keys, v2[randomIndex])
