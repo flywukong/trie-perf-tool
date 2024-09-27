@@ -282,13 +282,13 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					}
 
 				*/
-				fmt.Println("generate ", SmallTriesReadInBlock, "tries")
+				//	fmt.Println("generate ", SmallTriesReadInBlock, "tries")
 				randomStorageTrieList = make([]common.Address, SmallTriesReadInBlock)
 				perm := mathrand.Perm(len(d.smallStorageTrie))
 				for i := 0; i < SmallTriesReadInBlock; i++ {
 					randomStorageTrieList[i] = d.smallStorageTrie[perm[i]]
 				}
-
+				fmt.Println("randomStorageTrieList len", len(randomStorageTrieList))
 				smallStorageInitSize := d.perfConfig.SmallStorageSize
 
 				storageUpdateNum := int(batchSize)/5*3/len(randomStorageTrieList) + 5
@@ -302,6 +302,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 					ownerHash := crypto.Keccak256Hash(owner.Bytes())
 					smallTrieTestData[owner] = genStorageTrieKey(ownerHash, uint64(randomIndex), uint64(storageUpdateNum))
+					fmt.Println("owne len", ownerHash, len(smallTrieTestData[owner]))
 				}
 
 				for i := 0; i < len(randomStorageTrieList); i++ {
@@ -826,6 +827,7 @@ func (d *DBRunner) UpdateDB(
 		defer wg.Done()
 
 		var wg2 sync.WaitGroup
+		fmt.Println("task len", len(taskInfo.SmallTrieTask))
 		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
 
 		for i := 0; i < threadNum-1; i++ {
