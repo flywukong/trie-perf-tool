@@ -306,6 +306,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				}
 
 				for i := 0; i < len(randomStorageTrieList); i++ {
+					fmt.Println("index", i, "update num", storageUpdateNum)
 					keys := make([]string, 0, storageUpdateNum)
 					vals := make([]string, 0, storageUpdateNum)
 					owner := randomStorageTrieList[i]
