@@ -828,7 +828,20 @@ func (d *DBRunner) UpdateDB(
 
 		var wg2 sync.WaitGroup
 		fmt.Println("task len", len(taskInfo.SmallTrieTask))
+		for k, vals := range taskInfo.SmallTrieTask {
+			fmt.Println("address123", k, "lens ", len(vals.Keys))
+		}
+
 		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
+
+		for i := 0; i < threadNum-1; i++ {
+			for _, value := range smallTrieMaps[i] {
+				//	startPut := time.Now()
+				// Calculate the number of elements to keep based on the ratio
+				//updateKeyNum := int(float64(len(value.Keys)) * ratio)
+				fmt.Println("len keys11", float64(len(value.Keys)), "index", i)
+			}
+		}
 
 		for i := 0; i < threadNum-1; i++ {
 			wg2.Add(1)
