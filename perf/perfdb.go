@@ -725,6 +725,26 @@ func (d *DBRunner) UpdateDB(
 	} else {
 		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
 
+		if d.db.GetMPTEngine() != VERSADBEngine {
+			for i := 0; i < threadNum-1; i++ {
+				wg.Add(1)
+				go func(index int) {
+					defer wg.Done()
+					for owner, CAKeys := range smallTrieMaps[index] {
+						for j := 0; j < len(CAKeys.Keys); j++ {
+							v, err := d.db.GetStorageFromTrie(owner, []byte(CAKeys.Keys[j]))
+							if err != nil || v == nil {
+								if err != nil {
+									fmt.Println("fail to get small trie key", err.Error())
+								}
+							}
+						}
+					}
+				}(i)
+			}
+
+		}
+
 		for i := 0; i < threadNum-1; i++ {
 			wg.Add(1)
 			go func(index int) {
@@ -775,6 +795,26 @@ func (d *DBRunner) UpdateDB(
 				}
 			}
 		}()
+
+		if d.db.GetMPTEngine() != VERSADBEngine {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for owner, CAkeys := range taskInfo.LargeTrieTask {
+					for i := 0; i < len(CAkeys.Keys); i++ {
+						value, err := d.db.GetStorageFromTrie(owner, []byte(CAkeys.Keys[i]))
+
+						if err != nil || value == nil {
+							if err != nil {
+								fmt.Println("fail to get large tree key", err.Error())
+							}
+							fmt.Println("fail to get large tree key")
+							d.stat.IncGetNotExist(1)
+						}
+					}
+				}
+			}()
+		}
 
 		wg.Wait()
 

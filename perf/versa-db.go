@@ -316,6 +316,10 @@ func (v *VersaDBRunner) UpdateAccount(address common.Address, account *ethTypes.
 	return v.db.Put(v.rootTree, address.Bytes(), data)
 }
 
+func (v *VersaDBRunner) GetStorageFromTrie(address common.Address, key []byte) ([]byte, error) {
+	return v.GetStorage(address, key)
+}
+
 func (v *VersaDBRunner) GetStorage(address common.Address, key []byte) ([]byte, error) {
 	ownerHash := crypto.Keccak256Hash(address.Bytes())
 	v.handlerLock.RLock()
