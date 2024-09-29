@@ -725,25 +725,28 @@ func (d *DBRunner) UpdateDB(
 	} else {
 		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
 
-		if d.db.GetMPTEngine() != VERSADBEngine {
-			for i := 0; i < threadNum-1; i++ {
-				wg.Add(1)
-				go func(index int) {
-					defer wg.Done()
-					for owner, CAKeys := range smallTrieMaps[index] {
-						for j := 0; j < len(CAKeys.Keys); j++ {
-							v, err := d.db.GetStorageFromTrie(owner, []byte(CAKeys.Keys[j]))
-							if err != nil || v == nil {
-								if err != nil {
-									fmt.Println("fail to get small trie key", err.Error())
+		/*
+			if d.db.GetMPTEngine() != VERSADBEngine {
+				for i := 0; i < threadNum-1; i++ {
+					wg.Add(1)
+					go func(index int) {
+						defer wg.Done()
+						for owner, CAKeys := range smallTrieMaps[index] {
+							for j := 0; j < len(CAKeys.Keys); j++ {
+								v, err := d.db.GetStorageFromTrie(owner, []byte(CAKeys.Keys[j]))
+								if err != nil || v == nil {
+									if err != nil {
+										fmt.Println("fail to get small trie key", err.Error())
+									}
 								}
 							}
+							fmt.Println("prefetch finish")
 						}
-					}
-				}(i)
+					}(i)
+				}
 			}
 
-		}
+		*/
 
 		for i := 0; i < threadNum-1; i++ {
 			wg.Add(1)
@@ -752,10 +755,12 @@ func (d *DBRunner) UpdateDB(
 				for owner, CAKeys := range smallTrieMaps[index] {
 					for j := 0; j < len(CAKeys.Keys); j++ {
 						startRead := time.Now()
-						value, err := d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
+						var value []byte
 						if d.db.GetMPTEngine() == VERSADBEngine {
+							value, err = d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
 							VersaDBAccGetLatency.Update(time.Since(startRead))
 						} else {
+							value, err = d.db.GetStorageFromTrie(owner, []byte(CAKeys.Keys[j]))
 							StateDBAccGetLatency.Update(time.Since(startRead))
 						}
 						d.stat.IncGet(1)
@@ -778,10 +783,12 @@ func (d *DBRunner) UpdateDB(
 			for owner, CAkeys := range taskInfo.LargeTrieTask {
 				for i := 0; i < len(CAkeys.Keys); i++ {
 					startRead := time.Now()
-					value, err := d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
+					var value []byte
 					if d.db.GetMPTEngine() == VERSADBEngine {
+						value, err = d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
 						versaDBStorageGetLatency.Update(time.Since(startRead))
 					} else {
+						value, err = d.db.GetStorageFromTrie(owner, []byte(CAkeys.Keys[i]))
 						StateDBStorageGetLatency.Update(time.Since(startRead))
 					}
 					d.stat.IncGet(1)
@@ -796,25 +803,29 @@ func (d *DBRunner) UpdateDB(
 			}
 		}()
 
-		if d.db.GetMPTEngine() != VERSADBEngine {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for owner, CAkeys := range taskInfo.LargeTrieTask {
-					for i := 0; i < len(CAkeys.Keys); i++ {
-						value, err := d.db.GetStorageFromTrie(owner, []byte(CAkeys.Keys[i]))
+		/*
+			if d.db.GetMPTEngine() != VERSADBEngine {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for owner, CAkeys := range taskInfo.LargeTrieTask {
+						for i := 0; i < len(CAkeys.Keys); i++ {
+							value, err := d.db.GetStorageFromTrie(owner, []byte(CAkeys.Keys[i]))
 
-						if err != nil || value == nil {
-							if err != nil {
-								fmt.Println("fail to get large tree key", err.Error())
+							if err != nil || value == nil {
+								if err != nil {
+									fmt.Println("fail to get large tree key", err.Error())
+								}
+								fmt.Println("fail to get large tree key")
+								d.stat.IncGetNotExist(1)
 							}
-							fmt.Println("fail to get large tree key")
-							d.stat.IncGetNotExist(1)
 						}
+						fmt.Println("prefetch finish")
 					}
-				}
-			}()
-		}
+				}()
+			}
+
+		*/
 
 		wg.Wait()
 
