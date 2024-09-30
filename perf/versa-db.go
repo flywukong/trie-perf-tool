@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 	"time"
@@ -254,6 +255,10 @@ func (v *VersaDBRunner) UpdateStorage(address common.Address, keys []string, val
 		v.handlerLock.Unlock()
 	}
 	for i := 0; i < len(keys) && i < len(values); i++ {
+		_, originValue, _ := v.db.Get(tHandler, []byte(keys[i]))
+		if !bytes.Equal(originValue, []byte(values[i])) {
+			fmt.Println("update value not same")
+		}
 		start := time.Now()
 		err = v.db.Put(tHandler, []byte(keys[i]), []byte(values[i]))
 		VersaTreeUpdateTime.Update(time.Since(start))
