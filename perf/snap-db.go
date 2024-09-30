@@ -338,6 +338,8 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 		originValue, _ := stTrie.GetStorage(address, []byte(keys[i]))
 		if !bytes.Equal(originValue, []byte(vals[i])) {
 			fmt.Println("update value not same")
+		} else {
+			fmt.Println("update value is same")
 		}
 
 		start := time.Now()

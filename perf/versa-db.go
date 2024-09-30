@@ -258,6 +258,8 @@ func (v *VersaDBRunner) UpdateStorage(address common.Address, keys []string, val
 		_, originValue, _ := v.db.Get(tHandler, []byte(keys[i]))
 		if !bytes.Equal(originValue, []byte(values[i])) {
 			fmt.Println("update value not same")
+		} else {
+			fmt.Println("update value is same")
 		}
 		start := time.Now()
 		err = v.db.Put(tHandler, []byte(keys[i]), []byte(values[i]))
