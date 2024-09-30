@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -335,13 +334,6 @@ func (s *StateDBRunner) UpdateStorage(address common.Address, keys []string, val
 
 	// update batch storage trie
 	for i := 0; i < len(keys) && i < len(vals); i++ {
-		originValue, _ := stTrie.GetStorage(address, []byte(keys[i]))
-		if !bytes.Equal(originValue, []byte(vals[i])) {
-			fmt.Println("update value not same")
-		} else {
-			fmt.Println("update value is same")
-		}
-
 		start := time.Now()
 		err = stTrie.UpdateStorage(address, []byte(keys[i]), []byte(vals[i]))
 		if err != nil {
