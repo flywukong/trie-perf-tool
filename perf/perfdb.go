@@ -288,7 +288,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				for i := 0; i < SmallTriesReadInBlock; i++ {
 					randomStorageTrieList[i] = d.smallStorageTrie[perm[i]]
 				}
-				fmt.Println("randomStorageTrieList len", len(randomStorageTrieList))
+
 				smallStorageInitSize := d.perfConfig.SmallStorageSize
 
 				storageUpdateNum := int(batchSize)/5*3/len(randomStorageTrieList) + 5

@@ -30,7 +30,7 @@ const (
 	LargeStorageTrieNum    = 2
 	MaxLargeStorageTrieNum = 20
 	MaxCATrieNum           = 20000
-	SmallTriesReadInBlock  = 140
+	SmallTriesReadInBlock  = 80
 )
 
 type TreeConfig struct {
