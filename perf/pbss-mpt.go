@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/params"
 	bsctrie "github.com/ethereum/go-ethereum/trie"
 	"github.com/ethereum/go-ethereum/trie/trienode"
 	"github.com/ethereum/go-ethereum/triedb"
@@ -96,7 +97,12 @@ func MakePBSSTrieDatabase(datadir string) (*triedb.Database, ethdb.Database, err
 		return nil, diskdb, err
 	}
 	config := &triedb.Config{
-		PathDB: pathdb.Defaults,
+		Cache: TrieCleanCache,
+	}
+	config.PathDB = &pathdb.Config{
+		StateHistory:   params.FullImmutabilityThreshold,
+		CleanCacheSize: TrieCleanCache * 1024 * 1024 * 6,
+		DirtyCacheSize: TrieCleanCache * 1024 * 1024,
 	}
 
 	//config.PathDB.JournalFilePath = fmt.Sprintf("%s/%s", stack.ResolvePath("chaindata"), eth.JournalFileName)

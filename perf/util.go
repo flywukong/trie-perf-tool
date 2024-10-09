@@ -30,7 +30,9 @@ const (
 	LargeStorageTrieNum    = 2
 	MaxLargeStorageTrieNum = 20
 	MaxCATrieNum           = 20000
-	SmallTriesReadInBlock  = 80
+	SmallTriesReadInBlock  = 5
+	TrieCleanCache         = 1540
+	TotalAccount           = 200000000
 )
 
 type TreeConfig struct {
@@ -283,8 +285,12 @@ func genAccountKey(totalSize, size uint64) []string {
 func genAccountKeyV2(totalSize, size uint64) [][20]byte {
 	// Create a realistic account trie to hash
 	addresses := make([][20]byte, size)
+	start := 0
+	if totalSize < TotalAccount/2 {
+		start = TotalAccount / 2
+	}
 	for i := uint64(0); i < size; i++ {
-		num := rand.Intn(int(totalSize)) + MaxCATrieNum
+		num := start + rand.Intn(int(totalSize)) + MaxCATrieNum
 		//fmt.Println("account generate num", num)
 		hash := crypto.Keccak256([]byte(fmt.Sprintf("%d", num)))
 		//	fmt.Println("account generate hash", common.BytesToHash(hash))

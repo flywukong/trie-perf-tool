@@ -39,7 +39,7 @@ type StorageCache struct {
 
 func OpenVersaDB(path string, version int64) *VersaDBRunner {
 	db, err := versaDB.NewVersaDB(path, &versaDB.VersaDBConfig{
-		FlushInterval:  1000,
+		FlushInterval:  2000,
 		MaxStatesInMem: 128,
 	})
 	if err != nil {
@@ -84,6 +84,14 @@ func (v *VersaDBRunner) AddAccount(address common.Address, acc *ethTypes.StateAc
 }
 
 func (v *VersaDBRunner) GetAccount(address common.Address) ([]byte, error) {
+	_, val, err := v.db.Get(v.rootTree, address.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
+func (v *VersaDBRunner) GetAccountFromTrie(address common.Address) ([]byte, error) {
 	_, val, err := v.db.Get(v.rootTree, address.Bytes())
 	if err != nil {
 		return nil, err

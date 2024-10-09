@@ -76,7 +76,7 @@ func NewStateRunner(datadir string, root common.Hash) *StateDBRunner {
 		ownerStorageTrieCache: make(map[common.Hash]*trie.StateTrie),
 		triediskdb:            triediskdb,
 		stateRoot:             diskRoot,
-		cache:                 fastcache.New(1024 * 1024 * 1024),
+		cache:                 fastcache.New(300 * 1024 * 1024),
 	}
 
 	// Initialize with 2 random elements
@@ -172,6 +172,17 @@ func (s *StateDBRunner) GetAccount(address common.Address) ([]byte, error) {
 }
 
 func (v *StateDBRunner) GetAccountFromTrie(address common.Address) ([]byte, error) {
+	/*
+		account, err := v.accTrie.GetAccount(address)
+		if err != nil {
+			return nil, err
+		}
+		data, err := rlp.EncodeToBytes(account)
+		if err != nil {
+			fmt.Println("decode account err when init")
+		}
+		return data, err
+	*/
 	return v.accTrie.MustGet(address.Bytes()), nil
 }
 

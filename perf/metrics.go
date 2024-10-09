@@ -19,6 +19,9 @@ var (
 	stateDBImportLatency = metrics.NewRegisteredTimer("statedb/import/latency", nil)
 	VeraDBImportLatency  = metrics.NewRegisteredTimer("veradb/import/latency", nil)
 
+	stateDBImportLatency2 = metrics.NewRegisteredGauge("statedb/import/latency2", nil)
+	VeraDBImportLatency2  = metrics.NewRegisteredGauge("veradb/import/latency2", nil)
+
 	stateDBHashLatency = metrics.NewRegisteredTimer("statedb/hash/latency", nil)
 	VeraDBHashLatency  = metrics.NewRegisteredTimer("veradb/hash/latency", nil)
 

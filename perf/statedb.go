@@ -29,6 +29,7 @@ type TrieDatabase interface {
 
 type StateDatabase interface {
 	GetAccount(address common.Address) ([]byte, error)
+	GetAccountFromTrie(address common.Address) ([]byte, error)
 
 	AddAccount(address common.Address, acc *types.StateAccount) error
 

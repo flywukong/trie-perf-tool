@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	mathrand "math/rand"
+	"runtime"
 	"sync"
 	"time"
 
@@ -231,9 +232,9 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					accounts[i] = data
 				}
 
-				accountList := genAccountKeyV2(d.perfConfig.AccountsInitSize, uint64(updateAccounts)/10*6)
+				accountList := genAccountKeyV2(d.perfConfig.AccountsInitSize, uint64(updateAccounts)/10*10)
 
-				for i := 0; i < updateAccounts/10*5; i++ {
+				for i := 0; i < updateAccounts/10*10; i++ {
 					//	d.accountKeyCache.Add(accKeys[i])
 					acc := new(types.StateAccount)
 					err := rlp.DecodeBytes(accounts[i], acc)
@@ -243,20 +244,23 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					taskMap.AccountTask[common.BytesToAddress(accountList[i][:])] = acc
 				}
 
-				for i := 0; i < updateAccounts/10*5; i++ {
-					randomkey, exist := d.accountKeyCache.RandomItem()
-					if exist {
-						acc := new(types.StateAccount)
-						err := rlp.DecodeBytes(accounts[i], acc)
-						if err != nil {
-							fmt.Printf("Failed to decode RLP")
+				/*
+					for i := 0; i < updateAccounts/10*2; i++ {
+						randomkey, exist := d.accountKeyCache.RandomItem()
+						if exist {
+							acc := new(types.StateAccount)
+							err := rlp.DecodeBytes(accounts[i], acc)
+							if err != nil {
+								fmt.Printf("Failed to decode RLP")
+							}
+							task.AccountTask[common.BytesToAddress([]byte(randomkey))] = acc
+							//	fmt.Println("set taskMap address", common.BytesToAddress(accountList[i][:]).String())
+						} else {
+							fmt.Println("fail to find test account in cache")
 						}
-						task.AccountTask[common.BytesToAddress([]byte(randomkey))] = acc
-						//	fmt.Println("set taskMap address", common.BytesToAddress(accountList[i][:]).String())
-					} else {
-						fmt.Println("fail to find test account in cache")
 					}
-				}
+
+				*/
 			}(&taskMap)
 
 			min_value_size := d.perfConfig.MinValueSize
@@ -268,30 +272,32 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				// small storage trie write 3/5 kv of storage
 				var randomStorageTrieList []common.Address
 
+				// random choose 29 small tries
+				if len(d.smallStorageTrie) > SmallTriesReadInBlock {
+					//	fmt.Println("generate ", SmallTriesReadInBlock, "tries")
+					randomStorageTrieList = make([]common.Address, SmallTriesReadInBlock)
+					perm := mathrand.Perm(len(d.smallStorageTrie))
+					for i := 0; i < SmallTriesReadInBlock; i++ {
+						randomStorageTrieList[i] = d.smallStorageTrie[perm[i]]
+					}
+				} else {
+					randomStorageTrieList = d.smallStorageTrie
+				}
 				/*
-					// random choose 29 small tries
-					if len(d.smallStorageTrie) > SmallTriesReadInBlock {
-						fmt.Println("generate ", SmallTriesReadInBlock, "tries")
-						randomStorageTrieList = make([]common.Address, SmallTriesReadInBlock)
-						perm := mathrand.Perm(len(d.smallStorageTrie))
-						for i := 0; i < SmallTriesReadInBlock; i++ {
-							randomStorageTrieList[i] = d.smallStorageTrie[perm[i]]
-						}
-					} else {
-						randomStorageTrieList = d.smallStorageTrie
+					//	fmt.Println("generate ", SmallTriesReadInBlock, "tries")
+					randomStorageTrieList = make([]common.Address, SmallTriesReadInBlock)
+					perm := mathrand.Perm(len(d.smallStorageTrie))
+					for i := 0; i < SmallTriesReadInBlock; i++ {
+						randomStorageTrieList[i] = d.smallStorageTrie[perm[i]]
 					}
 
 				*/
-				//	fmt.Println("generate ", SmallTriesReadInBlock, "tries")
-				randomStorageTrieList = make([]common.Address, SmallTriesReadInBlock)
-				perm := mathrand.Perm(len(d.smallStorageTrie))
-				for i := 0; i < SmallTriesReadInBlock; i++ {
-					randomStorageTrieList[i] = d.smallStorageTrie[perm[i]]
-				}
 
 				smallStorageInitSize := d.perfConfig.SmallStorageSize
 
-				storageUpdateNum := int(batchSize)/5*3/len(randomStorageTrieList) + 5
+				UpdateNum := int(float64(batchSize) / float64(5) * float64(3))
+				storageUpdateNum := int(float64(UpdateNum)/float64(len(randomStorageTrieList))) + 1
+				//	fmt.Println("storageUpdateNum", storageUpdateNum)
 				for i := 0; i < len(randomStorageTrieList); i++ {
 					owner := randomStorageTrieList[i]
 					index := mathrand.Intn(5)
@@ -310,20 +316,22 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					owner := randomStorageTrieList[i]
 					//	owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 					v := smallTrieTestData[owner]
-					for j := 0; j < int(float64(storageUpdateNum)/10.0*5.0)+1; j++ {
+					for j := 0; j < int(float64(storageUpdateNum)/10.0*10.0); j++ {
 						// only cache 10000 for updating test
 						randomIndex := mathrand.Intn(len(v))
 						keys = append(keys, v[randomIndex])
 						vals = append(vals, string(generateValueV2(min_value_size, max_value_size)))
 					}
+					/*
+						v2 := d.storageCache[owner]
+						for j := 0; j < int(float64(storageUpdateNum)/10.0*2.0); j++ {
+							// only cache 10000 for updating test
+							randomIndex := mathrand.Intn(len(v2))
+							keys = append(keys, v2[randomIndex])
+							vals = append(vals, string(generateValueV2(min_value_size, max_value_size)))
+						}
 
-					v2 := d.storageCache[owner]
-					for j := 0; j < int(float64(storageUpdateNum)/10.0*5.0)+1; j++ {
-						// only cache 10000 for updating test
-						randomIndex := mathrand.Intn(len(v2))
-						keys = append(keys, v2[randomIndex])
-						vals = append(vals, string(generateValueV2(min_value_size, max_value_size)))
-					}
+					*/
 					task.SmallTrieTask[owner] = CAKeyValue{Keys: keys, Vals: vals}
 				}
 			}(&taskMap)
@@ -331,7 +339,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			go func(task *DBTask) {
 				defer wg.Done()
 				// large storage trie write 1/5 kv of storage
-				largeStorageUpdateNum := int(batchSize) / 5
+				largeStorageUpdateNum := int(float64(batchSize) / float64(5.0))
 				largeTrieNum := int(d.perfConfig.LargeTrieNum)
 				if len(d.largeStorageTrie) != largeTrieNum {
 					panic("large tree is not right")
@@ -356,23 +364,24 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				//fmt.Println("large tree cache key len ", len(v))
 				keys := make([]string, 0, largeStorageUpdateNum)
 				vals := make([]string, 0, largeStorageUpdateNum)
-				for j := 0; j < largeStorageUpdateNum/10*5; j++ {
+				for j := 0; j < largeStorageUpdateNum/10*10; j++ {
 					// only cache 10000 for updating test
 					randomIndex = mathrand.Intn(len(v))
 					value := generateValueV2(min_value_size, max_value_size)
 					keys = append(keys, v[randomIndex])
 					vals = append(vals, string(value))
 				}
+				/*
+					v2 := d.largeStorageCache[address]
+					for j := 0; j < largeStorageUpdateNum/10*2; j++ {
+						// only cache 10000 for updating test
+						randomIndex = mathrand.Intn(len(v2))
+						value := generateValueV2(min_value_size, max_value_size)
+						keys = append(keys, v2[randomIndex])
+						vals = append(vals, string(value))
+					}
 
-				v2 := d.largeStorageCache[address]
-				for j := 0; j < largeStorageUpdateNum/10*5; j++ {
-					// only cache 10000 for updating test
-					randomIndex = mathrand.Intn(len(v2))
-					value := generateValueV2(min_value_size, max_value_size)
-					keys = append(keys, v2[randomIndex])
-					vals = append(vals, string(value))
-				}
-
+				*/
 				task.LargeTrieTask[address] = CAKeyValue{Keys: keys, Vals: vals}
 			}(&taskMap)
 
@@ -499,17 +508,20 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 				stateDBRWLatency.Update(d.rwDuration)
 			}
 			// compute hash
+			/*
+				commtStart := time.Now()
+				d.db.Hash()
+				d.hashDuration = time.Since(commtStart)
+
+				if d.db.GetMPTEngine() == VERSADBEngine {
+					VeraDBHashLatency.Update(d.hashDuration)
+				} else {
+					stateDBHashLatency.Update(d.commitDuration)
+				}
+
+			*/
+
 			commtStart := time.Now()
-			d.db.Hash()
-			d.hashDuration = time.Since(commtStart)
-
-			if d.db.GetMPTEngine() == VERSADBEngine {
-				VeraDBHashLatency.Update(d.hashDuration)
-			} else {
-				stateDBHashLatency.Update(d.commitDuration)
-			}
-
-			commtStart = time.Now()
 			if _, err := d.db.Commit(); err != nil {
 				panic("failed to commit: " + err.Error())
 			}
@@ -531,8 +543,10 @@ func (d *DBRunner) runInternal(ctx context.Context) {
 
 			if d.db.GetMPTEngine() == VERSADBEngine {
 				VeraDBImportLatency.Update(time.Since(startBlock))
+				VeraDBImportLatency2.Update(time.Since(startBlock).Milliseconds())
 			} else {
 				stateDBImportLatency.Update(time.Since(startBlock))
+				stateDBImportLatency2.Update(time.Since(startBlock).Milliseconds())
 			}
 			d.totalBlockDurations += time.Since(startBlock)
 
@@ -652,6 +666,8 @@ func (d *DBRunner) UpdateDB(
 		cache = d.db.GetCache()
 	}
 	batchSize := int(d.perfConfig.BatchSize)
+	updateKeyNum := int(float64(batchSize))
+
 	var wg sync.WaitGroup
 	start := time.Now()
 
@@ -664,9 +680,6 @@ func (d *DBRunner) UpdateDB(
 		address = append(address, addr)
 	}
 
-	if d.blockHeight%100 == 0 {
-		fmt.Println("address list len", len(address))
-	}
 	err := d.db.OpenStorageTries(address)
 	if err != nil {
 		fmt.Println("opne storage trie err", err.Error())
@@ -724,30 +737,6 @@ func (d *DBRunner) UpdateDB(
 		}
 	} else {
 		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
-
-		/*
-			if d.db.GetMPTEngine() != VERSADBEngine {
-				for i := 0; i < threadNum-1; i++ {
-					wg.Add(1)
-					go func(index int) {
-						defer wg.Done()
-						for owner, CAKeys := range smallTrieMaps[index] {
-							for j := 0; j < len(CAKeys.Keys); j++ {
-								v, err := d.db.GetStorageFromTrie(owner, []byte(CAKeys.Keys[j]))
-								if err != nil || v == nil {
-									if err != nil {
-										fmt.Println("fail to get small trie key", err.Error())
-									}
-								}
-							}
-							fmt.Println("prefetch finish")
-						}
-					}(i)
-				}
-			}
-
-		*/
-
 		for i := 0; i < threadNum-1; i++ {
 			wg.Add(1)
 			go func(index int) {
@@ -760,7 +749,7 @@ func (d *DBRunner) UpdateDB(
 							value, err = d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
 							VersaDBAccGetLatency.Update(time.Since(startRead))
 						} else {
-							value, err = d.db.GetStorageFromTrie(owner, []byte(CAKeys.Keys[j]))
+							value, err = d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
 							StateDBAccGetLatency.Update(time.Since(startRead))
 						}
 						d.stat.IncGet(1)
@@ -788,7 +777,7 @@ func (d *DBRunner) UpdateDB(
 						value, err = d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
 						versaDBStorageGetLatency.Update(time.Since(startRead))
 					} else {
-						value, err = d.db.GetStorageFromTrie(owner, []byte(CAkeys.Keys[i]))
+						value, err = d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
 						StateDBStorageGetLatency.Update(time.Since(startRead))
 					}
 					d.stat.IncGet(1)
@@ -803,34 +792,9 @@ func (d *DBRunner) UpdateDB(
 			}
 		}()
 
-		/*
-			if d.db.GetMPTEngine() != VERSADBEngine {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for owner, CAkeys := range taskInfo.LargeTrieTask {
-						for i := 0; i < len(CAkeys.Keys); i++ {
-							value, err := d.db.GetStorageFromTrie(owner, []byte(CAkeys.Keys[i]))
-
-							if err != nil || value == nil {
-								if err != nil {
-									fmt.Println("fail to get large tree key", err.Error())
-								}
-								fmt.Println("fail to get large tree key")
-								d.stat.IncGetNotExist(1)
-							}
-						}
-						fmt.Println("prefetch finish")
-					}
-				}()
-			}
-
-		*/
-
-		wg.Wait()
-
 	}
 	//	fmt.Println("account task key num", len(taskInfo.AccountTask), "height", d.blockHeight)
+
 	accountMaps := splitAccountTask(taskInfo.AccountTask, threadNum)
 	//  read 1/5 kv of account
 	for i := 0; i < threadNum; i++ {
@@ -857,8 +821,8 @@ func (d *DBRunner) UpdateDB(
 			}
 		}(i)
 	}
-	wg.Wait()
 
+	wg.Wait()
 	d.rDuration = time.Since(start)
 	d.totalReadCost += d.rDuration
 
@@ -868,55 +832,70 @@ func (d *DBRunner) UpdateDB(
 		stateDBGetTps.Update(int64(float64(batchSize) / float64(d.rDuration.Microseconds()) * 1000))
 	}
 
+	//	wg2.Wait()
+	//	fmt.Println("read cost time2:", time.Since(start2).Milliseconds(), "ms")
 	wg.Add(2)
 
 	go func() {
 		start = time.Now()
-		ratio := d.perfConfig.RwRatio
+
 		defer wg.Done()
-
-		var wg2 sync.WaitGroup
-
-		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
-
-		for i := 0; i < threadNum-1; i++ {
-			wg2.Add(1)
-			go func(index int) {
-				defer wg2.Done()
-				for owner, value := range smallTrieMaps[index] {
-					startPut := time.Now()
-					// Calculate the number of elements to keep based on the ratio
-					updateKeyNum := int(float64(len(value.Keys)) * ratio)
-					Keys := value.Keys[:updateKeyNum]
-					Vals := value.Vals[:updateKeyNum]
-					// add new storage
-					_, err := d.db.UpdateStorage(owner, Keys, Vals)
-					if err != nil {
-						fmt.Println("update storage err", err.Error())
+		tasks := make(chan func())
+		finishCh := make(chan struct{})
+		defer close(finishCh)
+		wg2 := sync.WaitGroup{}
+		for i := 0; i < runtime.NumCPU(); i++ {
+			go func() {
+				for {
+					select {
+					case task := <-tasks:
+						task()
+					case <-finishCh:
+						return
 					}
-					microseconds = time.Since(startPut).Microseconds() / int64(len(Keys))
-					if d.db.GetMPTEngine() == VERSADBEngine {
-						versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-					} else {
-						StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-					}
-					d.stat.IncPut(uint64(len(Keys)))
 				}
-			}(i)
+			}()
 		}
 
-		// use one thread to read a random large storage trie
-		wg2.Add(1)
-		go func() {
-			defer wg2.Done()
-			// simulate update large Storage Trie
-			for owner, value := range taskInfo.LargeTrieTask {
-				// Calculate the number of elements to keep based on the ratio
-				updateKeyNum := int(float64(len(value.Keys)) * ratio)
+		smallTaskLen := len(taskInfo.SmallTrieTask)
 
+		for owner, value := range taskInfo.SmallTrieTask {
+			wg2.Add(1)
+			tasks <- func() {
+				startPut := time.Now()
+				// Calculate the number of elements to keep based on the ratio
+				//updateKeyNum := int(float64(len(value.Keys)) * ratio)
+				keyNum := int(float64(updateKeyNum)*0.2/float64(smallTaskLen)) + 1
+				Keys := value.Keys[:keyNum]
+				Vals := value.Vals[:keyNum]
+				//	fmt.Println("update small trie key num:", keyNum)
+				// add new storage
+				_, err := d.db.UpdateStorage(owner, Keys, Vals)
+				if err != nil {
+					fmt.Println("update storage err", err.Error())
+				}
+				microseconds = time.Since(startPut).Microseconds() / int64(len(Keys))
+				if d.db.GetMPTEngine() == VERSADBEngine {
+					versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+				} else {
+					StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+				}
+				d.stat.IncPut(uint64(len(Keys)))
+
+				wg2.Done()
+			}
+		}
+
+		for owner, value := range taskInfo.LargeTrieTask {
+			wg2.Add(1)
+			tasks <- func() {
+				// Calculate the number of elements to keep based on the ratio
+				//	updateKeyNum := int(float64(len(value.Keys)) * ratio)
+				keyNum := int(float64(updateKeyNum)*0.05) + 1
+				//	fmt.Println("update large trie key num:", keyNum)
 				// Create new slices based on the calculated number of elements
-				newKeys := value.Keys[:updateKeyNum]
-				newVals := value.Vals[:updateKeyNum]
+				newKeys := value.Keys[:keyNum]
+				newVals := value.Vals[:keyNum]
 
 				startPut := time.Now()
 				// add new storage
@@ -931,12 +910,15 @@ func (d *DBRunner) UpdateDB(
 					StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 				}
 				d.stat.IncPut(uint64(len(newKeys)))
+				wg2.Done()
 			}
-		}()
+		}
+
 		wg2.Wait()
 
-		updateKeyNum := int(float64(len(taskInfo.AccountTask)) * ratio)
 		n := 0
+
+		accountUpdatedNum := int(float64(updateKeyNum) * 0.14)
 		for key, value := range taskInfo.AccountTask {
 			n++
 			startPut := time.Now()
@@ -951,7 +933,7 @@ func (d *DBRunner) UpdateDB(
 			} else {
 				StateDBAccPutLatency.Update(time.Since(startPut))
 			}
-			if n > updateKeyNum {
+			if n > accountUpdatedNum {
 				break
 			}
 			d.stat.IncPut(1)
@@ -969,7 +951,7 @@ func (d *DBRunner) UpdateDB(
 
 	go func() {
 		defer wg.Done()
-		ratio := d.perfConfig.RwRatio
+		//ratio := d.perfConfig.RwRatio
 		if d.db.GetMPTEngine() == StateTrieEngine && snapDB != nil && cache != nil {
 			start2 := time.Now()
 			defer func() {
@@ -979,7 +961,10 @@ func (d *DBRunner) UpdateDB(
 			}()
 
 			// simulate insert key to snap
+			n := 0
+			//	updateKeyNum := int(float64(len(taskInfo.AccountTask)) * ratio)
 			for key, value := range taskInfo.AccountTask {
+				n++
 				// add new account
 				accHash := crypto.Keccak256Hash(key.Bytes())
 				data, err := rlp.EncodeToBytes(value)
@@ -988,15 +973,19 @@ func (d *DBRunner) UpdateDB(
 				}
 				rawdb.WriteAccountSnapshot(snapDB, accHash, data)
 				cache.Set(accHash[:], data)
+				if n > updateKeyNum/2 {
+					break
+				}
 			}
 
+			smallTaskLen := len(taskInfo.SmallTrieTask)
 			for key, value := range taskInfo.SmallTrieTask {
 				accHash := crypto.Keccak256Hash(key.Bytes())
-				updateKeyNum := int(float64(len(value.Keys)) * ratio)
-
+				//	updateKeyNum = int(float64(len(value.Keys)) * ratio)
+				keyNum := int(float64(updateKeyNum) * 0.5 * 0.75 / float64(smallTaskLen))
 				// Create new slices based on the calculated number of elements
-				newKeys := value.Keys[:updateKeyNum]
-				newVals := value.Vals[:updateKeyNum]
+				newKeys := value.Keys[:keyNum]
+				newVals := value.Vals[:keyNum]
 				for i, k := range newKeys {
 					storageHash := hashData([]byte(k))
 					cachekey := append(accHash[:], storageHash[:]...)
@@ -1005,13 +994,14 @@ func (d *DBRunner) UpdateDB(
 				}
 			}
 
+			//	largeTaskLen := len(taskInfo.LargeTrieTask)
 			for key, value := range taskInfo.LargeTrieTask {
 				accHash := crypto.Keccak256Hash(key.Bytes())
-				updateKeyNum := int(float64(len(value.Keys)) * ratio)
-
+				//	updateKeyNum = int(float64(len(value.Keys)) * ratio)
+				keyNum := int(float64(updateKeyNum) * 0.5 * 0.25)
 				// Create new slices based on the calculated number of elements
-				newKeys := value.Keys[:updateKeyNum]
-				newVals := value.Vals[:updateKeyNum]
+				newKeys := value.Keys[:keyNum]
+				newVals := value.Vals[:keyNum]
 				for i, k := range newKeys {
 					storageHash := hashData([]byte(k))
 					cachekey := append(accHash[:], storageHash[:]...)
@@ -1062,24 +1052,6 @@ func (d *DBRunner) InitSingleStorageTrie(
 			StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 		}
 	}
-
-	/*
-		// cache the inserted key for updating test
-		if d.isLargeStorageTrie(address) {
-			if len(d.largeStorageCache[address]) < 500000 {
-				for i := 0; i < len(value.Keys)/500; i++ {
-					d.largeStorageCache[address] = append(d.largeStorageCache[address], value.Keys[i])
-				}
-			}
-		} else {
-			if len(d.storageCache[address]) < 200000 {
-				for i := 0; i < len(value.Keys)/50; i++ {
-					d.storageCache[address] = append(d.storageCache[address], value.Keys[i])
-				}
-			}
-		}
-
-	*/
 
 	if snapDB != nil {
 		accHash := crypto.Keccak256Hash(address.Bytes())
