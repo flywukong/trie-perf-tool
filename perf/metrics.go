@@ -33,6 +33,9 @@ var (
 
 	VersaDBAccGetLatency     = metrics.NewRegisteredTimer("versadb/account/get/latency", nil)
 	versaDBStorageGetLatency = metrics.NewRegisteredTimer("versadb/storage/get/latency", nil)
+
+	versaDBStoreGetLatency = metrics.NewRegisteredTimer("versadb/storage/store/latency", nil)
+
 	VersaDBAccPutLatency     = metrics.NewRegisteredTimer("versadb/account/put/latency", nil)
 	versaDBStoragePutLatency = metrics.NewRegisteredTimer("versadb/storage/put/latency", nil)
 

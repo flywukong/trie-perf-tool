@@ -165,7 +165,9 @@ func (s *StateDBRunner) GetAccount(address common.Address) ([]byte, error) {
 		return blob, nil
 	}
 	snapshotCleanAccountMissMeter.Mark(1)
+	start := time.Now()
 	data := rawdb.ReadAccountSnapshot(s.diskdb, common.BytesToHash(accHash))
+	versaDBStoreGetLatency.Update(time.Since(start))
 	//	rawdb.WriteAccountSnapshot(snapDB, accHash, data)
 	s.cache.Set(accHash[:], data)
 	return data, nil
@@ -254,8 +256,9 @@ func (s *StateDBRunner) GetStorage(address common.Address, key []byte) ([]byte, 
 		return blob, nil
 	}
 	snapshotCleanStorageMissMeter.Mark(1)
+	start := time.Now()
 	data := rawdb.ReadStorageSnapshot(s.diskdb, common.BytesToHash(accHash), storageHash)
-
+	versaDBStoreGetLatency.Update(time.Since(start))
 	s.cache.Set(cachekey, data)
 	return data, nil
 }
