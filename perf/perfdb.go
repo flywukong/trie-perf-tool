@@ -862,10 +862,23 @@ func (d *DBRunner) UpdateDB(
 		for owner, value := range taskInfo.SmallTrieTask {
 			wg2.Add(1)
 			tasks <- func() {
-				startPut := time.Now()
 				// Calculate the number of elements to keep based on the ratio
-				//updateKeyNum := int(float64(len(value.Keys)) * ratio)
 				keyNum := int(float64(updateKeyNum)*0.2/float64(smallTaskLen)) + 1
+				delNum := 0
+				if smallTaskLen > 50 {
+					delNum = 1
+				} else {
+					delNum = 3
+				}
+				DelKeys := value.Keys[keyNum : keyNum+delNum]
+				for i := 0; i < 3; i++ {
+					err = d.db.DeleteStorage(owner, []byte(DelKeys[i]))
+					if err != nil {
+						fmt.Println("delete storage err", err.Error())
+					}
+				}
+
+				startPut := time.Now()
 				Keys := value.Keys[:keyNum]
 				Vals := value.Vals[:keyNum]
 				//	fmt.Println("update small trie key num:", keyNum)

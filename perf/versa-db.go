@@ -205,6 +205,60 @@ func (v *VersaDBRunner) OpenStorageTries(addresses []common.Address) error {
 	return nil
 }
 
+func (v *VersaDBRunner) DeleteStorage(address common.Address, key []byte) error {
+	ownerHash := crypto.Keccak256Hash(address.Bytes())
+	v.handlerLock.RLock()
+	tHandler, found := v.ownerHandlerCache[ownerHash]
+	v.handlerLock.RUnlock()
+	if !found {
+		fmt.Println("fail to find the tree handler in cache")
+		var stRoot common.Hash
+		var versionNum int64
+		var encodedData []byte
+		var err error
+		// try to get version and root from cache first
+		v.lock.RLock()
+		cache, exist := v.ownerStorageCache[ownerHash]
+		v.lock.RUnlock()
+		if !exist {
+			versionNum, encodedData, err = v.db.Get(v.rootTree, address.Bytes())
+			if err != nil {
+				return err
+			}
+			//	fmt.Println("get account len:", len(encodedData), "version", versionNum, "owner: ", ownerHash)
+			account := new(ethTypes.StateAccount)
+			err = rlp.DecodeBytes(encodedData, account)
+			if err != nil {
+				fmt.Printf("Failed to decode RLP %v, db get CA account %s, version %d, val len:%d, versrion2 %d\n",
+					err, ownerHash,
+					v.version, len(encodedData), versionNum)
+				return err
+			}
+			stRoot = account.Root
+			v.lock.Lock()
+			v.ownerStorageCache[ownerHash] = StorageCache{
+				version: versionNum,
+				stRoot:  stRoot,
+			}
+			// update the cache for read
+			v.lock.Unlock()
+
+		} else {
+			versionNum = cache.version
+			stRoot = cache.stRoot
+		}
+
+		// Check if the owner is in the opened
+		handler, err := v.tryGetTreeLock(ownerHash, stRoot, versionNum)
+		if err != nil {
+			return err
+		}
+		tHandler = *handler
+	}
+
+	return v.db.Delete(tHandler, key)
+}
+
 // UpdateStorage  update batch k,v of storage trie
 func (v *VersaDBRunner) UpdateStorage(address common.Address, keys []string, values []string) (common.Hash, error) {
 	var err error

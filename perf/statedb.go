@@ -43,6 +43,8 @@ type StateDatabase interface {
 
 	UpdateStorage(address common.Address, keys []string, value []string) (common.Hash, error)
 
+	DeleteStorage(address common.Address, key []byte) error
+
 	Commit() (common.Hash, error)
 
 	Hash() common.Hash
