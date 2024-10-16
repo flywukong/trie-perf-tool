@@ -167,7 +167,7 @@ func (s *StateDBRunner) GetAccount(address common.Address) ([]byte, error) {
 	snapshotCleanAccountMissMeter.Mark(1)
 	start := time.Now()
 	data := rawdb.ReadAccountSnapshot(s.diskdb, common.BytesToHash(accHash))
-	fmt.Println("value size is ", len(data))
+
 	versaDBStoreGetLatency.Update(time.Since(start))
 	//	rawdb.WriteAccountSnapshot(snapDB, accHash, data)
 	s.cache.Set(accHash[:], data)
