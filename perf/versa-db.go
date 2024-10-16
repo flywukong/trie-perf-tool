@@ -223,7 +223,7 @@ func (v *VersaDBRunner) DeleteStorage(address common.Address, key []byte) error 
 		if !exist {
 			versionNum, encodedData, err = v.db.Get(v.rootTree, address.Bytes())
 			if err != nil {
-				return nil, err
+				return err
 			}
 			//	fmt.Println("get account len:", len(encodedData), "version", versionNum, "owner: ", ownerHash)
 			account := new(ethTypes.StateAccount)
@@ -232,7 +232,7 @@ func (v *VersaDBRunner) DeleteStorage(address common.Address, key []byte) error 
 				fmt.Printf("Failed to decode RLP %v, db get CA account %s, version %d, val len:%d, versrion2 %d\n",
 					err, ownerHash,
 					v.version, len(encodedData), versionNum)
-				return nil, err
+				return err
 			}
 			stRoot = account.Root
 			v.lock.Lock()

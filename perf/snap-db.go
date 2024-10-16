@@ -279,14 +279,14 @@ func (s *StateDBRunner) DeleteStorage(address common.Address, key []byte) error 
 		if !exist {
 			encodedData, err := s.GetAccount(address)
 			if err != nil {
-				return nil, fmt.Errorf("fail to get storage trie root in cache1")
+				return fmt.Errorf("fail to get storage trie root in cache1")
 			}
 			account := new(ethTypes.StateAccount)
 			err = rlp.DecodeBytes(encodedData, account)
 			if err != nil {
 				fmt.Printf("failed to decode RLP %v, db get CA account %s, val len:%d \n",
 					err, ownerHash.String(), len(encodedData))
-				return nil, err
+				return err
 			}
 			root = account.Root
 			fmt.Println("new state trie use CA root", root)
