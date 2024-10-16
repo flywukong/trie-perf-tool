@@ -251,7 +251,7 @@ func (v *VersaDBRunner) DeleteStorage(address common.Address, key []byte) error 
 		// Check if the owner is in the opened
 		handler, err := v.tryGetTreeLock(ownerHash, stRoot, versionNum)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		tHandler = *handler
 	}
