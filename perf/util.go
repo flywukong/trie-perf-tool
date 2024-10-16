@@ -30,7 +30,7 @@ const (
 	LargeStorageTrieNum    = 2
 	MaxLargeStorageTrieNum = 20
 	MaxCATrieNum           = 20000
-	SmallTriesReadInBlock  = 5
+	SmallTriesReadInBlock  = 80
 	TrieCleanCache         = 1540
 	TotalAccount           = 200000000
 )
