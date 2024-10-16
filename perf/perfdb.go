@@ -522,25 +522,6 @@ func (d *DBRunner) UpdateDB(
 	var wg sync.WaitGroup
 	start := time.Now()
 
-	var address []common.Address
-
-	for addr, _ := range taskInfo.SmallTrieTask {
-		address = append(address, addr)
-	}
-	for addr, _ := range taskInfo.LargeTrieTask {
-		address = append(address, addr)
-	}
-
-	err := d.db.OpenStorageTries(address)
-	if err != nil {
-		fmt.Println("opne storage trie err", err.Error())
-	}
-	microseconds := time.Since(start).Microseconds() / int64(len(address))
-	if d.db.GetMPTEngine() == VERSADBEngine {
-		VersaDBOpenTreeLatency.Update(time.Duration(microseconds) * time.Microsecond)
-	} else {
-		StateDBOpenTreeLatency.Update(time.Duration(microseconds) * time.Microsecond)
-	}
 	threadNum := d.perfConfig.NumJobs
 
 	start = time.Now()

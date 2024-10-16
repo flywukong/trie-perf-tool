@@ -286,12 +286,8 @@ func genAccountKeyV2(totalSize, size uint64) [][20]byte {
 	// Create a realistic account trie to hash
 	addresses := make([][20]byte, size)
 	start := 0
-	if totalSize < TotalAccount/2 {
-		start = TotalAccount / 2
-	}
 	for i := uint64(0); i < size; i++ {
 		num := start + rand.Intn(int(totalSize)) + MaxCATrieNum
-		//fmt.Println("account generate num", num)
 		hash := crypto.Keccak256([]byte(fmt.Sprintf("%d", num)))
 		//	fmt.Println("account generate hash", common.BytesToHash(hash))
 		copy(addresses[i][:], hash[:20])
