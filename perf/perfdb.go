@@ -882,6 +882,19 @@ func (d *DBRunner) UpdateDB(
 				}
 				d.stat.IncPut(uint64(len(Keys)))
 
+				delNum := 0
+				if smallTaskLen > 50 {
+					delNum = 1
+				} else {
+					delNum = 3
+				}
+				DelKeys := value.Keys[keyNum : keyNum+delNum]
+				for i := 0; i < 3; i++ {
+					err = d.db.DeleteStorage(owner, []byte(DelKeys[i]))
+					if err != nil {
+						fmt.Println("delete storage err", err.Error())
+					}
+				}
 				wg2.Done()
 			}
 		}
