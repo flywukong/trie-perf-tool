@@ -45,7 +45,7 @@ func (p *VersaTrie) Delete(key []byte) error {
 }
 
 func (p *VersaTrie) Commit() (common.Hash, error) {
-	hash, _, err := p.trie.Commit(0, false, 0)
+	hash, _, err := p.trie.Commit(0)
 	return hash, err
 }
 
