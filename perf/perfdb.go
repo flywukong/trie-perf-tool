@@ -92,9 +92,9 @@ func (d *DBRunner) Run(ctx context.Context) {
 		diskVersion := d.db.GetVersion()
 		fmt.Println("disk version is", diskVersion)
 
-		accSize := d.perfConfig.AccountsInitSize
-		accBatch := d.perfConfig.AccountsBlocks
-		accPerBatch := accSize / accBatch
+		accSize := d.perfConfig.AccountsInitSize // AccountsInitSize is 500W
+		accBatch := d.perfConfig.AccountsBlocks  // AccountsBlocks is 1000,
+		accPerBatch := accSize / accBatch        // init_batch_size: 5000
 
 		for i := uint64(0); i < d.perfConfig.AccountsBlocks; i++ {
 			startIndex := i * accPerBatch
@@ -203,11 +203,15 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 }
 
 func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
+	count := uint64(0)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+			if count > d.perfConfig.OperationItems {
+				return
+			}
 			taskMap := NewDBTask()
 			var wg sync.WaitGroup
 			wg.Add(3)
@@ -343,7 +347,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				largeStorageCache[address] = genStorageTrieKey(ownerHash, uint64(randomIndex), uint64(largeStorageUpdateNum))
 
 				v := largeStorageCache[address]
-				//fmt.Println("large tree cache key len ", len(v))
+				// fmt.Println("large tree cache key len ", len(v))
 				keys := make([]string, 0, largeStorageUpdateNum)
 				vals := make([]string, 0, largeStorageUpdateNum)
 				for j := 0; j < largeStorageUpdateNum/10*8; j++ {
@@ -367,6 +371,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			}(&taskMap)
 
 			d.taskChan <- taskMap
+			count += d.perfConfig.OperationItems
 		}
 	}
 }
@@ -436,7 +441,7 @@ func (d *DBRunner) InitSmallStorageTrie() []common.Hash {
 	for i := 0; i < int(CATrieNum-d.perfConfig.LargeTrieNum); i++ {
 		address := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 		ownerHash := crypto.Keccak256Hash(address.Bytes())
-		//ownerHash := d.storageOwnerList[i+MaxLargeStorageTrieNum]
+		// ownerHash := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 		fmt.Println("generate small trie, owner:", ownerHash)
 		d.smallStorageTrie[i] = address
 		d.owners[i+MaxLargeStorageTrieNum] = ownerHash
@@ -573,7 +578,7 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 	addresses, accounts := makeAccountsV2(startIndex, size)
 
 	for i := 0; i < len(addresses); i++ {
-		//initKey := string(crypto.Keccak256(addresses[i][:]))
+		// initKey := string(crypto.Keccak256(addresses[i][:]))
 		address := common.BytesToAddress(addresses[i][:])
 		startPut := time.Now()
 		err := r.db.AddAccount(address, accounts[i])
@@ -910,7 +915,7 @@ func (d *DBRunner) InitSingleStorageTrie(
 	value CAKeyValue,
 	firstInsert bool,
 ) {
-	//smallStorageSize := d.perfConfig.StorageTrieSize / 100
+	// smallStorageSize := d.perfConfig.StorageTrieSize / 100
 	var snapDB ethdb.KeyValueStore
 	if d.db.GetMPTEngine() == StateTrieEngine && d.db.GetFlattenDB() != nil {
 		// simulate insert key to snap

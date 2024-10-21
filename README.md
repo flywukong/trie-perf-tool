@@ -50,3 +50,8 @@ begin to verify root hash, the batch size of block is 100
 [2024-07-26T12:41:46.731497+08:00] verify In Progress, finish compare block 4105
 [2024-07-26T12:41:49.73112+08:00] verify In Progress, finish compare block 5485
 ```
+
+LargeTrieNum用来指定写入多少个large trie，对应aptos preloaded-large-contract-count
+smallTree的数量是由StorageTrieNum-LargeTrieNum计算出来的
+aptos里的operation-items是用来计算更新多少次kv，用operation-items/operation_batch计算要更新的次数
+StorageInitSize对应合约数大小，aptos preloaded_large_trie_items；TrieBlocks传1

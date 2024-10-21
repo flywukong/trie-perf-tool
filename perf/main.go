@@ -45,6 +45,7 @@ type PerfConfig struct {
 	TrieBlocks       uint64
 	IsInitMode       bool
 	SleepTime        uint64
+	OperationItems   uint64
 }
 
 const version = "1.0.0"
@@ -244,6 +245,12 @@ func main() {
 				Value:       0.01,
 				Destination: &config.RwRatio,
 			},
+			&cli.Uint64Flag{
+				Name:        "operation_items",
+				Usage:       "The count of update data",
+				Value:       5000,
+				Destination: &config.OperationItems,
+			},
 		},
 		Action: func(c *cli.Context) error {
 			fmt.Printf("Running with config: %+v\n", config)
@@ -361,8 +368,8 @@ func verifyDB(c *cli.Context) error {
 	dir, _ := os.Getwd()
 	stateDB := NewStateRunner(filepath.Join(dir, "state-trie-dir"), types.EmptyRootHash)
 
-	//ctx, cancel := context.WithTimeout(context.Background(), c.Duration("runtime"))
-	//defer cancel()
+	// ctx, cancel := context.WithTimeout(context.Background(), c.Duration("runtime"))
+	// defer cancel()
 	verifyer := NewStateVerifyer(stateDB, VersaDB, parsePerfConfig(c), 10)
 
 	fmt.Println("begin to verify root hash, the batch size of block is", verifyer.perfConfig.BatchSize)
