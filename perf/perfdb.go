@@ -361,7 +361,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 				largeStorageCache[address] = genStorageTrieKey(ownerHash, uint64(randomIndex), uint64(largeStorageUpdateNum))
 
 				v := largeStorageCache[address]
-				//fmt.Println("large tree cache key len ", len(v))
+				// fmt.Println("large tree cache key len ", len(v))
 				keys := make([]string, 0, largeStorageUpdateNum)
 				vals := make([]string, 0, largeStorageUpdateNum)
 				for j := 0; j < largeStorageUpdateNum/10*10; j++ {
@@ -455,7 +455,7 @@ func (d *DBRunner) InitSmallStorageTrie() []common.Hash {
 	for i := 0; i < int(CATrieNum-d.perfConfig.LargeTrieNum); i++ {
 		address := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 		ownerHash := crypto.Keccak256Hash(address.Bytes())
-		//ownerHash := d.storageOwnerList[i+MaxLargeStorageTrieNum]
+		// ownerHash := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 		fmt.Println("generate small trie, owner:", ownerHash)
 		d.smallStorageTrie[i] = address
 		d.owners[i+MaxLargeStorageTrieNum] = ownerHash
@@ -608,7 +608,7 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 	addresses, accounts := makeAccountsV2(startIndex, size)
 
 	for i := 0; i < len(addresses); i++ {
-		//initKey := string(crypto.Keccak256(addresses[i][:]))
+		// initKey := string(crypto.Keccak256(addresses[i][:]))
 		address := common.BytesToAddress(addresses[i][:])
 		startPut := time.Now()
 		err := r.db.AddAccount(address, accounts[i])
@@ -704,7 +704,7 @@ func (d *DBRunner) UpdateDB(
 				if d.db.GetMPTEngine() == VERSADBEngine {
 					VersaDBAccGetLatency.Update(time.Since(startRead))
 				} else {
-					StateDBAccGetLatency.Update(time.Since(startRead))
+					StateDBSmallStorageGetLatency.Update(time.Since(startRead))
 				}
 				d.stat.IncGet(1)
 				if err != nil || value == nil {
@@ -723,7 +723,7 @@ func (d *DBRunner) UpdateDB(
 				if d.db.GetMPTEngine() == VERSADBEngine {
 					versaDBStorageGetLatency.Update(time.Since(startRead))
 				} else {
-					StateDBStorageGetLatency.Update(time.Since(startRead))
+					StateDBLargeStorageGetLatency.Update(time.Since(startRead))
 				}
 				d.stat.IncGet(1)
 				if err != nil || value == nil {
@@ -750,7 +750,7 @@ func (d *DBRunner) UpdateDB(
 							VersaDBAccGetLatency.Update(time.Since(startRead))
 						} else {
 							value, err = d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
-							StateDBAccGetLatency.Update(time.Since(startRead))
+							StateDBSmallStorageGetLatency.Update(time.Since(startRead))
 						}
 						d.stat.IncGet(1)
 						if err != nil || value == nil {
@@ -778,7 +778,7 @@ func (d *DBRunner) UpdateDB(
 						versaDBStorageGetLatency.Update(time.Since(startRead))
 					} else {
 						value, err = d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
-						StateDBStorageGetLatency.Update(time.Since(startRead))
+						StateDBLargeStorageGetLatency.Update(time.Since(startRead))
 					}
 					d.stat.IncGet(1)
 					if err != nil || value == nil {
@@ -891,7 +891,7 @@ func (d *DBRunner) UpdateDB(
 				if d.db.GetMPTEngine() == VERSADBEngine {
 					versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 				} else {
-					StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+					StateDBSmallStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 				}
 				d.stat.IncPut(uint64(len(Keys)))
 
@@ -920,7 +920,7 @@ func (d *DBRunner) UpdateDB(
 				if d.db.GetMPTEngine() == VERSADBEngine {
 					versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 				} else {
-					StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+					StateDBLargeStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 				}
 				d.stat.IncPut(uint64(len(newKeys)))
 				wg2.Done()
@@ -964,7 +964,7 @@ func (d *DBRunner) UpdateDB(
 
 	go func() {
 		defer wg.Done()
-		//ratio := d.perfConfig.RwRatio
+		// ratio := d.perfConfig.RwRatio
 		if d.db.GetMPTEngine() == StateTrieEngine && snapDB != nil && cache != nil {
 			start2 := time.Now()
 			defer func() {
@@ -1033,7 +1033,7 @@ func (d *DBRunner) InitSingleStorageTrie(
 	value CAKeyValue,
 	firstInsert bool,
 ) {
-	//smallStorageSize := d.perfConfig.StorageTrieSize / 100
+	// smallStorageSize := d.perfConfig.StorageTrieSize / 100
 	var snapDB ethdb.KeyValueStore
 	if d.db.GetMPTEngine() == StateTrieEngine && d.db.GetFlattenDB() != nil {
 		// simulate insert key to snap
@@ -1062,7 +1062,7 @@ func (d *DBRunner) InitSingleStorageTrie(
 		if d.db.GetMPTEngine() == VERSADBEngine {
 			versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 		} else {
-			StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+			StateDBSingleStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
 		}
 	}
 
@@ -1103,7 +1103,7 @@ func (d *DBRunner) InitSingleStorageTrie(
 
 func (d *DBRunner) trySleep() {
 	time.Sleep(time.Duration(d.perfConfig.SleepTime) * time.Millisecond)
-	//time.Sleep(300 * time.Millisecond)
+	// time.Sleep(300 * time.Millisecond)
 }
 
 func (d *DBRunner) isLargeStorageTrie(owner common.Address) bool {
