@@ -203,6 +203,7 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 	wg.Wait()
 }
 
+// batchSize：1500
 func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 	for {
 		select {
@@ -216,7 +217,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 			go func(task *DBTask) {
 				defer wg.Done()
 				random := mathrand.New(mathrand.NewSource(0))
-				updateAccounts := int(batchSize) / 5
+				updateAccounts := int(batchSize) / 5 // 300
 				accounts := make([][]byte, updateAccounts)
 				for i := 0; i < updateAccounts; i++ {
 					var (
@@ -764,6 +765,7 @@ func (d *DBRunner) UpdateDB(
 				}
 			}(i)
 		}
+		wg.Wait()
 
 		// use one thread to read a random large storage trie
 		wg.Add(1)
@@ -791,7 +793,7 @@ func (d *DBRunner) UpdateDB(
 				}
 			}
 		}()
-
+		wg.Wait()
 	}
 	//	fmt.Println("account task key num", len(taskInfo.AccountTask), "height", d.blockHeight)
 
@@ -821,8 +823,8 @@ func (d *DBRunner) UpdateDB(
 			}
 		}(i)
 	}
-
 	wg.Wait()
+
 	d.rDuration = time.Since(start)
 	d.totalReadCost += d.rDuration
 
@@ -834,7 +836,7 @@ func (d *DBRunner) UpdateDB(
 
 	//	wg2.Wait()
 	//	fmt.Println("read cost time2:", time.Since(start2).Milliseconds(), "ms")
-	wg.Add(2)
+	wg.Add(1)
 
 	go func() {
 		start = time.Now()
@@ -961,7 +963,9 @@ func (d *DBRunner) UpdateDB(
 			stateDBPutTps.Update(int64(float64(batchSize) * d.perfConfig.RwRatio / float64(d.wDuration.Microseconds()) * 1000))
 		}
 	}()
+	wg.Wait()
 
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		// ratio := d.perfConfig.RwRatio
