@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	mathrand "math/rand"
-	"runtime"
 	"sync"
 	"time"
 
-	"github.com/VictoriaMetrics/fastcache"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -659,13 +657,13 @@ func (d *DBRunner) UpdateDB(
 	taskInfo DBTask,
 ) {
 
-	var snapDB ethdb.KeyValueStore
-	var cache *fastcache.Cache
-	if d.db.GetMPTEngine() == StateTrieEngine && d.db.GetFlattenDB() != nil && d.db.GetCache() != nil {
-		// simulate insert key to snap
-		snapDB = d.db.GetFlattenDB()
-		cache = d.db.GetCache()
-	}
+	// var snapDB ethdb.KeyValueStore
+	// var cache *fastcache.Cache
+	// if d.db.GetMPTEngine() == StateTrieEngine && d.db.GetFlattenDB() != nil && d.db.GetCache() != nil {
+	// 	// simulate insert key to snap
+	// 	snapDB = d.db.GetFlattenDB()
+	// 	cache = d.db.GetCache()
+	// }
 	batchSize := int(d.perfConfig.BatchSize)
 	updateKeyNum := int(float64(batchSize))
 
@@ -737,63 +735,63 @@ func (d *DBRunner) UpdateDB(
 			}
 		}
 	} else {
-		smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
-		for i := 0; i < threadNum-1; i++ {
-			wg.Add(1)
-			go func(index int) {
-				defer wg.Done()
-				for owner, CAKeys := range smallTrieMaps[index] {
-					for j := 0; j < len(CAKeys.Keys); j++ {
-						startRead := time.Now()
-						var value []byte
-						if d.db.GetMPTEngine() == VERSADBEngine {
-							value, err = d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
-							VersaDBAccGetLatency.Update(time.Since(startRead))
-						} else {
-							value, err = d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
-							StateDBSmallStorageGetLatency.Update(time.Since(startRead))
-						}
-						d.stat.IncGet(1)
-						if err != nil || value == nil {
-							if err != nil {
-								fmt.Println("fail to get small trie key", err.Error())
-							}
-							fmt.Println("fail to get small trie key")
-							d.stat.IncGetNotExist(1)
-						}
-					}
-				}
-			}(i)
-		}
-		wg.Wait()
-
-		// use one thread to read a random large storage trie
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for owner, CAkeys := range taskInfo.LargeTrieTask {
-				for i := 0; i < len(CAkeys.Keys); i++ {
-					startRead := time.Now()
-					var value []byte
-					if d.db.GetMPTEngine() == VERSADBEngine {
-						value, err = d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
-						versaDBStorageGetLatency.Update(time.Since(startRead))
-					} else {
-						value, err = d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
-						StateDBLargeStorageGetLatency.Update(time.Since(startRead))
-					}
-					d.stat.IncGet(1)
-					if err != nil || value == nil {
-						if err != nil {
-							fmt.Println("fail to get large tree key", err.Error())
-						}
-						fmt.Println("fail to get large tree key")
-						d.stat.IncGetNotExist(1)
-					}
-				}
-			}
-		}()
-		wg.Wait()
+		// 	smallTrieMaps := splitTrieTask(taskInfo.SmallTrieTask, threadNum-1)
+		// 	for i := 0; i < threadNum-1; i++ {
+		// 		wg.Add(1)
+		// 		go func(index int) {
+		// 			defer wg.Done()
+		// 			for owner, CAKeys := range smallTrieMaps[index] {
+		// 				for j := 0; j < len(CAKeys.Keys); j++ {
+		// 					startRead := time.Now()
+		// 					var value []byte
+		// 					if d.db.GetMPTEngine() == VERSADBEngine {
+		// 						value, err = d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
+		// 						VersaDBAccGetLatency.Update(time.Since(startRead))
+		// 					} else {
+		// 						value, err = d.db.GetStorage(owner, []byte(CAKeys.Keys[j]))
+		// 						StateDBSmallStorageGetLatency.Update(time.Since(startRead))
+		// 					}
+		// 					d.stat.IncGet(1)
+		// 					if err != nil || value == nil {
+		// 						if err != nil {
+		// 							fmt.Println("fail to get small trie key", err.Error())
+		// 						}
+		// 						fmt.Println("fail to get small trie key")
+		// 						d.stat.IncGetNotExist(1)
+		// 					}
+		// 				}
+		// 			}
+		// 		}(i)
+		// 	}
+		// 	wg.Wait()
+		//
+		// 	// use one thread to read a random large storage trie
+		// 	wg.Add(1)
+		// 	go func() {
+		// 		defer wg.Done()
+		// 		for owner, CAkeys := range taskInfo.LargeTrieTask {
+		// 			for i := 0; i < len(CAkeys.Keys); i++ {
+		// 				startRead := time.Now()
+		// 				var value []byte
+		// 				if d.db.GetMPTEngine() == VERSADBEngine {
+		// 					value, err = d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
+		// 					versaDBStorageGetLatency.Update(time.Since(startRead))
+		// 				} else {
+		// 					value, err = d.db.GetStorage(owner, []byte(CAkeys.Keys[i]))
+		// 					StateDBLargeStorageGetLatency.Update(time.Since(startRead))
+		// 				}
+		// 				d.stat.IncGet(1)
+		// 				if err != nil || value == nil {
+		// 					if err != nil {
+		// 						fmt.Println("fail to get large tree key", err.Error())
+		// 					}
+		// 					fmt.Println("fail to get large tree key")
+		// 					d.stat.IncGetNotExist(1)
+		// 				}
+		// 			}
+		// 		}
+		// 	}()
+		// 	wg.Wait()
 	}
 	//	fmt.Println("account task key num", len(taskInfo.AccountTask), "height", d.blockHeight)
 
@@ -842,94 +840,94 @@ func (d *DBRunner) UpdateDB(
 		start = time.Now()
 
 		defer wg.Done()
-		tasks := make(chan func())
-		finishCh := make(chan struct{})
-		defer close(finishCh)
-		wg2 := sync.WaitGroup{}
-		for i := 0; i < runtime.NumCPU(); i++ {
-			go func() {
-				for {
-					select {
-					case task := <-tasks:
-						task()
-					case <-finishCh:
-						return
-					}
-				}
-			}()
-		}
-
-		smallTaskLen := len(taskInfo.SmallTrieTask)
-
-		for owner, value := range taskInfo.SmallTrieTask {
-			wg2.Add(1)
-			tasks <- func() {
-				// Calculate the number of elements to keep based on the ratio
-				keyNum := int(float64(updateKeyNum)*0.2/float64(smallTaskLen)) + 1
-				delNum := 0
-				if smallTaskLen > 50 {
-					delNum = 1
-				} else {
-					delNum = 3
-				}
-				DelKeys := value.Keys[keyNum : keyNum+delNum]
-				for i := 0; i < 3; i++ {
-					err = d.db.DeleteStorage(owner, []byte(DelKeys[i]))
-					if err != nil {
-						fmt.Println("delete storage err", err.Error())
-					}
-				}
-
-				startPut := time.Now()
-				Keys := value.Keys[:keyNum]
-				Vals := value.Vals[:keyNum]
-				//	fmt.Println("update small trie key num:", keyNum)
-				// add new storage
-				_, err := d.db.UpdateStorage(owner, Keys, Vals)
-				if err != nil {
-					fmt.Println("update storage err", err.Error())
-				}
-				microseconds = time.Since(startPut).Microseconds() / int64(len(Keys))
-				if d.db.GetMPTEngine() == VERSADBEngine {
-					versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-				} else {
-					StateDBSmallStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-				}
-				d.stat.IncPut(uint64(len(Keys)))
-
-				wg2.Done()
-			}
-		}
-
-		for owner, value := range taskInfo.LargeTrieTask {
-			wg2.Add(1)
-			tasks <- func() {
-				// Calculate the number of elements to keep based on the ratio
-				//	updateKeyNum := int(float64(len(value.Keys)) * ratio)
-				keyNum := int(float64(updateKeyNum)*0.05) + 1
-				//	fmt.Println("update large trie key num:", keyNum)
-				// Create new slices based on the calculated number of elements
-				newKeys := value.Keys[:keyNum]
-				newVals := value.Vals[:keyNum]
-
-				startPut := time.Now()
-				// add new storage
-				_, err := d.db.UpdateStorage(owner, newKeys, newVals)
-				if err != nil {
-					fmt.Println("update storage err", err.Error())
-				}
-				microseconds = time.Since(startPut).Microseconds() / int64(len(newKeys))
-				if d.db.GetMPTEngine() == VERSADBEngine {
-					versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-				} else {
-					StateDBLargeStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
-				}
-				d.stat.IncPut(uint64(len(newKeys)))
-				wg2.Done()
-			}
-		}
-
-		wg2.Wait()
+		// tasks := make(chan func())
+		// finishCh := make(chan struct{})
+		// defer close(finishCh)
+		// wg2 := sync.WaitGroup{}
+		// for i := 0; i < runtime.NumCPU(); i++ {
+		// 	go func() {
+		// 		for {
+		// 			select {
+		// 			case task := <-tasks:
+		// 				task()
+		// 			case <-finishCh:
+		// 				return
+		// 			}
+		// 		}
+		// 	}()
+		// }
+		//
+		// smallTaskLen := len(taskInfo.SmallTrieTask)
+		//
+		// for owner, value := range taskInfo.SmallTrieTask {
+		// 	wg2.Add(1)
+		// 	tasks <- func() {
+		// 		// Calculate the number of elements to keep based on the ratio
+		// 		keyNum := int(float64(updateKeyNum)*0.2/float64(smallTaskLen)) + 1
+		// 		delNum := 0
+		// 		if smallTaskLen > 50 {
+		// 			delNum = 1
+		// 		} else {
+		// 			delNum = 3
+		// 		}
+		// 		DelKeys := value.Keys[keyNum : keyNum+delNum]
+		// 		for i := 0; i < 3; i++ {
+		// 			err = d.db.DeleteStorage(owner, []byte(DelKeys[i]))
+		// 			if err != nil {
+		// 				fmt.Println("delete storage err", err.Error())
+		// 			}
+		// 		}
+		//
+		// 		startPut := time.Now()
+		// 		Keys := value.Keys[:keyNum]
+		// 		Vals := value.Vals[:keyNum]
+		// 		//	fmt.Println("update small trie key num:", keyNum)
+		// 		// add new storage
+		// 		_, err := d.db.UpdateStorage(owner, Keys, Vals)
+		// 		if err != nil {
+		// 			fmt.Println("update storage err", err.Error())
+		// 		}
+		// 		microseconds = time.Since(startPut).Microseconds() / int64(len(Keys))
+		// 		if d.db.GetMPTEngine() == VERSADBEngine {
+		// 			versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+		// 		} else {
+		// 			StateDBSmallStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+		// 		}
+		// 		d.stat.IncPut(uint64(len(Keys)))
+		//
+		// 		wg2.Done()
+		// 	}
+		// }
+		//
+		// for owner, value := range taskInfo.LargeTrieTask {
+		// 	wg2.Add(1)
+		// 	tasks <- func() {
+		// 		// Calculate the number of elements to keep based on the ratio
+		// 		//	updateKeyNum := int(float64(len(value.Keys)) * ratio)
+		// 		keyNum := int(float64(updateKeyNum)*0.05) + 1
+		// 		//	fmt.Println("update large trie key num:", keyNum)
+		// 		// Create new slices based on the calculated number of elements
+		// 		newKeys := value.Keys[:keyNum]
+		// 		newVals := value.Vals[:keyNum]
+		//
+		// 		startPut := time.Now()
+		// 		// add new storage
+		// 		_, err := d.db.UpdateStorage(owner, newKeys, newVals)
+		// 		if err != nil {
+		// 			fmt.Println("update storage err", err.Error())
+		// 		}
+		// 		microseconds = time.Since(startPut).Microseconds() / int64(len(newKeys))
+		// 		if d.db.GetMPTEngine() == VERSADBEngine {
+		// 			versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+		// 		} else {
+		// 			StateDBLargeStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+		// 		}
+		// 		d.stat.IncPut(uint64(len(newKeys)))
+		// 		wg2.Done()
+		// 	}
+		// }
+		//
+		// wg2.Wait()
 
 		n := 0
 
@@ -965,71 +963,71 @@ func (d *DBRunner) UpdateDB(
 	}()
 	wg.Wait()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		// ratio := d.perfConfig.RwRatio
-		if d.db.GetMPTEngine() == StateTrieEngine && snapDB != nil && cache != nil {
-			start2 := time.Now()
-			defer func() {
-				if d.blockHeight%100 == 0 {
-					fmt.Println("update snap cost:", time.Since(start2).Milliseconds(), "ms")
-				}
-			}()
-
-			// simulate insert key to snap
-			n := 0
-			//	updateKeyNum := int(float64(len(taskInfo.AccountTask)) * ratio)
-			for key, value := range taskInfo.AccountTask {
-				n++
-				// add new account
-				accHash := crypto.Keccak256Hash(key.Bytes())
-				data, err := rlp.EncodeToBytes(value)
-				if err != nil {
-					fmt.Println("decode account err when init")
-				}
-				rawdb.WriteAccountSnapshot(snapDB, accHash, data)
-				cache.Set(accHash[:], data)
-				if n > updateKeyNum/2 {
-					break
-				}
-			}
-
-			smallTaskLen := len(taskInfo.SmallTrieTask)
-			for key, value := range taskInfo.SmallTrieTask {
-				accHash := crypto.Keccak256Hash(key.Bytes())
-				//	updateKeyNum = int(float64(len(value.Keys)) * ratio)
-				keyNum := int(float64(updateKeyNum) * 0.5 * 0.75 / float64(smallTaskLen))
-				// Create new slices based on the calculated number of elements
-				newKeys := value.Keys[:keyNum]
-				newVals := value.Vals[:keyNum]
-				for i, k := range newKeys {
-					storageHash := hashData([]byte(k))
-					cachekey := append(accHash[:], storageHash[:]...)
-					rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(newVals[i]))
-					cache.Set(cachekey, []byte(newVals[i]))
-				}
-			}
-
-			//	largeTaskLen := len(taskInfo.LargeTrieTask)
-			for key, value := range taskInfo.LargeTrieTask {
-				accHash := crypto.Keccak256Hash(key.Bytes())
-				//	updateKeyNum = int(float64(len(value.Keys)) * ratio)
-				keyNum := int(float64(updateKeyNum) * 0.5 * 0.25)
-				// Create new slices based on the calculated number of elements
-				newKeys := value.Keys[:keyNum]
-				newVals := value.Vals[:keyNum]
-				for i, k := range newKeys {
-					storageHash := hashData([]byte(k))
-					cachekey := append(accHash[:], storageHash[:]...)
-					rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(newVals[i]))
-					cache.Set(cachekey, []byte(newVals[i]))
-				}
-			}
-		}
-	}()
-
-	wg.Wait()
+	// wg.Add(1)
+	// go func() {
+	// 	defer wg.Done()
+	// 	// ratio := d.perfConfig.RwRatio
+	// 	if d.db.GetMPTEngine() == StateTrieEngine && snapDB != nil && cache != nil {
+	// 		start2 := time.Now()
+	// 		defer func() {
+	// 			if d.blockHeight%100 == 0 {
+	// 				fmt.Println("update snap cost:", time.Since(start2).Milliseconds(), "ms")
+	// 			}
+	// 		}()
+	//
+	// 		// simulate insert key to snap
+	// 		n := 0
+	// 		//	updateKeyNum := int(float64(len(taskInfo.AccountTask)) * ratio)
+	// 		for key, value := range taskInfo.AccountTask {
+	// 			n++
+	// 			// add new account
+	// 			accHash := crypto.Keccak256Hash(key.Bytes())
+	// 			data, err := rlp.EncodeToBytes(value)
+	// 			if err != nil {
+	// 				fmt.Println("decode account err when init")
+	// 			}
+	// 			rawdb.WriteAccountSnapshot(snapDB, accHash, data)
+	// 			cache.Set(accHash[:], data)
+	// 			if n > updateKeyNum/2 {
+	// 				break
+	// 			}
+	// 		}
+	//
+	// 		smallTaskLen := len(taskInfo.SmallTrieTask)
+	// 		for key, value := range taskInfo.SmallTrieTask {
+	// 			accHash := crypto.Keccak256Hash(key.Bytes())
+	// 			//	updateKeyNum = int(float64(len(value.Keys)) * ratio)
+	// 			keyNum := int(float64(updateKeyNum) * 0.5 * 0.75 / float64(smallTaskLen))
+	// 			// Create new slices based on the calculated number of elements
+	// 			newKeys := value.Keys[:keyNum]
+	// 			newVals := value.Vals[:keyNum]
+	// 			for i, k := range newKeys {
+	// 				storageHash := hashData([]byte(k))
+	// 				cachekey := append(accHash[:], storageHash[:]...)
+	// 				rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(newVals[i]))
+	// 				cache.Set(cachekey, []byte(newVals[i]))
+	// 			}
+	// 		}
+	//
+	// 		//	largeTaskLen := len(taskInfo.LargeTrieTask)
+	// 		for key, value := range taskInfo.LargeTrieTask {
+	// 			accHash := crypto.Keccak256Hash(key.Bytes())
+	// 			//	updateKeyNum = int(float64(len(value.Keys)) * ratio)
+	// 			keyNum := int(float64(updateKeyNum) * 0.5 * 0.25)
+	// 			// Create new slices based on the calculated number of elements
+	// 			newKeys := value.Keys[:keyNum]
+	// 			newVals := value.Vals[:keyNum]
+	// 			for i, k := range newKeys {
+	// 				storageHash := hashData([]byte(k))
+	// 				cachekey := append(accHash[:], storageHash[:]...)
+	// 				rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(newVals[i]))
+	// 				cache.Set(cachekey, []byte(newVals[i]))
+	// 			}
+	// 		}
+	// 	}
+	// }()
+	//
+	// wg.Wait()
 }
 
 func (d *DBRunner) InitSingleStorageTrie(
