@@ -139,11 +139,11 @@ func (d *DBRunner) Run(ctx context.Context) {
 			d.storageOwnerList[i] = common.BytesToAddress(ownerList[i])
 		}
 
-		d.InitLargeStorageTries()
-		fmt.Println("init the large tries finish")
+		//	d.InitLargeStorageTries()
+		//	fmt.Println("init the large tries finish")
 
-		d.InitSmallStorageTrie()
-		fmt.Println("init small trie finish")
+		//	d.InitSmallStorageTrie()
+		//	fmt.Println("init small trie finish")
 
 		// init the lock of each tree
 		d.db.InitStorage(d.owners, totalTrieNum+MaxLargeStorageTrieNum)
