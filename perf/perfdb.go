@@ -684,59 +684,50 @@ func (r *DBRunner) printStat() {
 func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 	addresses, accounts := makeAccountsV2(startIndex, size)
 
-	var wg sync.WaitGroup
 	for i := 0; i < len(addresses); i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
+		address := common.BytesToAddress(addresses[i][:])
+		startPut := time.Now()
 
-			address := common.BytesToAddress(addresses[i][:])
+		// 并发执行AddAccount和WriteAccountSnapshot
+		var addAccountErr error
+		var snapWg sync.WaitGroup
 
-			// 并发执行AddAccount和WriteAccountSnapshot
-			var addAccountErr error
-			var snapWg sync.WaitGroup
+		// 执行AddAccount
+		snapWg.Add(1)
+		go func() {
+			defer snapWg.Done()
+			addAccountErr = r.db.AddAccount(address, accounts[i])
+			if addAccountErr != nil {
+				fmt.Println("init account err", addAccountErr)
+			}
+			// 更新延迟统计
+			if r.db.GetMPTEngine() == VERSADBEngine {
+				VersaDBAccPutLatency.Update(time.Since(startPut))
+			} else {
+				StateDBAccPutLatency.Update(time.Since(startPut))
+			}
+			r.accountKeyCache.Add(address.String())
+		}()
 
-			// 执行AddAccount
+		// 并发执行快照写入（如果需要）
+		if r.db.GetMPTEngine() == StateTrieEngine && r.db.GetFlattenDB() != nil {
 			snapWg.Add(1)
 			go func() {
-				startPut := time.Now()
 				defer snapWg.Done()
-				addAccountErr = r.db.AddAccount(address, accounts[i])
-				if addAccountErr != nil {
-					fmt.Println("init account err", addAccountErr)
+				snapDB := r.db.GetFlattenDB()
+				data, err := rlp.EncodeToBytes(accounts[i])
+				if err != nil {
+					fmt.Println("decode account err when init")
+					return
 				}
-				// 更新延迟统计
-				if r.db.GetMPTEngine() == VERSADBEngine {
-					VersaDBAccPutLatency.Update(time.Since(startPut))
-				} else {
-					StateDBAccPutLatency.Update(time.Since(startPut))
-				}
-				r.accountKeyCache.Add(address.String())
+				rawdb.WriteAccountSnapshot(snapDB, crypto.Keccak256Hash(address.Bytes()), data)
 			}()
+		}
 
-			// 并发执行快照写入（如果需要）
-			if r.db.GetMPTEngine() == StateTrieEngine && r.db.GetFlattenDB() != nil {
-				snapWg.Add(1)
-				go func() {
-					defer snapWg.Done()
-					snapDB := r.db.GetFlattenDB()
-					data, err := rlp.EncodeToBytes(accounts[i])
-					if err != nil {
-						fmt.Println("decode account err when init")
-						return
-					}
-					rawdb.WriteAccountSnapshot(snapDB, crypto.Keccak256Hash(address.Bytes()), data)
-				}()
-			}
+		// 等待两个IO操作都完成
+		snapWg.Wait()
 
-			// 等待两个IO操作都完成
-			snapWg.Wait()
-
-		}(i)
 	}
-
-	// 等待所有账户处理完成
-	wg.Wait()
 
 	commtStart := time.Now()
 	if _, err := r.db.Commit(); err != nil {
