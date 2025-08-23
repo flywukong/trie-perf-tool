@@ -75,6 +75,36 @@ func NewDBRunner(
 	return runner
 }
 
+// getSmallTrieActualSize 根据地址在smallStorageTrie数组中的位置计算实际大小
+func (d *DBRunner) getSmallTrieActualSize(address common.Address) uint64 {
+	// 在smallStorageTrie数组中查找该地址的索引
+	for i, trieAddr := range d.smallStorageTrie {
+		if trieAddr == address {
+			smallTrieCount := uint64(len(d.smallStorageTrie))
+			thirdSize := smallTrieCount / 3
+			baseSmallStorageSize := d.perfConfig.SmallStorageSize
+
+			var sizeMultiplier float64
+			if uint64(i) < thirdSize {
+				// 前1/3: 1倍
+				sizeMultiplier = 1.0
+			} else if uint64(i) < thirdSize*2 {
+				// 中间1/3: 0.5倍
+				sizeMultiplier = 0.5
+			} else {
+				// 最后1/3: 0.1倍
+				sizeMultiplier = 0.1
+			}
+
+			return uint64(float64(baseSmallStorageSize) * sizeMultiplier)
+		}
+	}
+
+	// 如果找不到，返回默认大小
+	fmt.Printf("Warning: address %s not found in smallStorageTrie, using default size\n", address.Hex())
+	return d.perfConfig.SmallStorageSize
+}
+
 func (d *DBRunner) Run(ctx context.Context) {
 	defer close(d.taskChan)
 
@@ -154,37 +184,80 @@ func (d *DBRunner) updateCache(largeTrieNum, totalTrieNum uint64) {
 			owner := d.storageOwnerList[i]
 			d.largeStorageTrie[i] = owner
 			ownerHash := crypto.Keccak256Hash(owner.Bytes())
-			largeStorageInitSize := d.perfConfig.StorageTrieSize
+			baseStorageTrieSize := d.perfConfig.StorageTrieSize
+
+			// 根据trie索引设置不同的倍数
+			var sizeMultiplier float64
+			switch i {
+			case 0: // 第1个trie: 2.3倍
+				sizeMultiplier = 2.3
+			case 1: // 第2个trie: 1倍
+				sizeMultiplier = 1.0
+			case 2: // 第3个trie: 0.7倍
+				sizeMultiplier = 0.7
+			case 3: // 第4个trie: 0.6倍
+				sizeMultiplier = 0.6
+			case 4: // 第5个trie: 0.4倍
+				sizeMultiplier = 0.4
+			case 5: // 第6个trie: 0.4倍
+				sizeMultiplier = 0.4
+			default: // 超过6个的都是0.4倍
+				sizeMultiplier = 0.4
+			}
+
+			actualStorageTrieSize := uint64(float64(baseStorageTrieSize) * sizeMultiplier)
 
 			index := mathrand.Intn(5)
-			startRange := (int(d.perfConfig.StorageTrieSize) / 5 * index)
-			endRange := (int(d.perfConfig.StorageTrieSize) / 5 * (index + 1))
+			startRange := (int(actualStorageTrieSize) / 5 * index)
+			endRange := (int(actualStorageTrieSize) / 5 * (index + 1))
 			middleRangeStart := startRange + (endRange-startRange)/4
 			middleRangeEnd := endRange - (endRange-startRange)/4
 			randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 
-			d.largeStorageCache[owner] = genStorageTrieKey(ownerHash, uint64(randomIndex), largeStorageInitSize/1000)
+			d.largeStorageCache[owner] = genStorageTrieKey(ownerHash, uint64(randomIndex), actualStorageTrieSize/1000)
+
+			fmt.Printf("Large Trie %d: size multiplier %.1f, actual size %d\n", i, sizeMultiplier, actualStorageTrieSize)
 		}
 		fmt.Println("update large storage cache finish")
 	}()
 
 	go func() {
 		defer wg.Done()
-		for i := uint64(0); i < totalTrieNum-largeTrieNum; i++ {
+		smallTrieCount := totalTrieNum - largeTrieNum
+		thirdSize := smallTrieCount / 3
+
+		for i := uint64(0); i < smallTrieCount; i++ {
 			owner := d.storageOwnerList[i+MaxLargeStorageTrieNum]
 			d.smallStorageTrie[i] = owner
 			ownerHash := crypto.Keccak256Hash(owner.Bytes())
-			smallStorageInitSize := d.perfConfig.SmallStorageSize
+			baseSmallStorageSize := d.perfConfig.SmallStorageSize
+
+			// 根据trie索引设置不同的倍数
+			var sizeMultiplier float64
+			if i < thirdSize {
+				// 前1/3: 1倍
+				sizeMultiplier = 1.0
+			} else if i < thirdSize*2 {
+				// 中间1/3: 0.5倍
+				sizeMultiplier = 0.5
+			} else {
+				// 最后1/3: 0.1倍
+				sizeMultiplier = 0.1
+			}
+
+			actualSmallStorageSize := uint64(float64(baseSmallStorageSize) * sizeMultiplier)
 
 			index := mathrand.Intn(5)
-			startRange := (int(smallStorageInitSize) / 5 * index)
-			endRange := (int(smallStorageInitSize) / 5 * (index + 1))
+			startRange := (int(actualSmallStorageSize) / 5 * index)
+			endRange := (int(actualSmallStorageSize) / 5 * (index + 1))
 			middleRangeStart := startRange + (endRange-startRange)/4
 			middleRangeEnd := endRange - (endRange-startRange)/4
 
 			randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 
-			d.storageCache[owner] = genStorageTrieKey(ownerHash, uint64(randomIndex), smallStorageInitSize/2000)
+			d.storageCache[owner] = genStorageTrieKey(ownerHash, uint64(randomIndex), actualSmallStorageSize/2000)
+
+			fmt.Printf("Small Trie %d: size multiplier %.1f, actual size %d\n", i, sizeMultiplier, actualSmallStorageSize)
 		}
 		fmt.Println("update small storage cache finish")
 	}()
@@ -293,21 +366,25 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 
 				*/
 
-				smallStorageInitSize := d.perfConfig.SmallStorageSize
-
 				UpdateNum := int(float64(batchSize) / float64(5) * float64(3))
 				storageUpdateNum := int(float64(UpdateNum)/float64(len(randomStorageTrieList))) + 1
 				//	fmt.Println("storageUpdateNum", storageUpdateNum)
 				for i := 0; i < len(randomStorageTrieList); i++ {
 					owner := randomStorageTrieList[i]
+
+					// 根据地址在数组中的位置动态计算实际大小
+					actualTrieSize := d.getSmallTrieActualSize(owner)
+
 					index := mathrand.Intn(5)
-					startRange := (int(smallStorageInitSize) / 5 * index)
-					endRange := (int(smallStorageInitSize) / 5 * (index + 1))
+					startRange := (int(actualTrieSize) / 5 * index)
+					endRange := (int(actualTrieSize) / 5 * (index + 1))
 					middleRangeStart := startRange + (endRange-startRange)/4
 					middleRangeEnd := endRange - (endRange-startRange)/4
 					randomIndex := middleRangeStart + mathrand.Intn(middleRangeEnd-middleRangeStart)
 					ownerHash := crypto.Keccak256Hash(owner.Bytes())
 					smallTrieTestData[owner] = genStorageTrieKey(ownerHash, uint64(randomIndex), uint64(storageUpdateNum))
+
+					fmt.Printf("Using trie %s with actual size %d\n", owner.Hex()[:8], actualTrieSize)
 				}
 
 				for i := 0; i < len(randomStorageTrieList); i++ {
