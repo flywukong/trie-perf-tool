@@ -607,31 +607,59 @@ func (r *DBRunner) printStat() {
 func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 	addresses, accounts := makeAccountsV2(startIndex, size)
 
+	var wg sync.WaitGroup
 	for i := 0; i < len(addresses); i++ {
-		//initKey := string(crypto.Keccak256(addresses[i][:]))
-		address := common.BytesToAddress(addresses[i][:])
-		startPut := time.Now()
-		err := r.db.AddAccount(address, accounts[i])
-		if err != nil {
-			fmt.Println("init account err", err)
-		}
-		if r.db.GetMPTEngine() == VERSADBEngine {
-			VersaDBAccPutLatency.Update(time.Since(startPut))
-		} else {
-			StateDBAccPutLatency.Update(time.Since(startPut))
-		}
-		r.accountKeyCache.Add(address.String())
-		if r.db.GetMPTEngine() == StateTrieEngine && r.db.GetFlattenDB() != nil {
-			// simulate insert key to snap
-			snapDB := r.db.GetFlattenDB()
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
 
-			data, err := rlp.EncodeToBytes(accounts[i])
-			if err != nil {
-				fmt.Println("decode account err when init")
+			address := common.BytesToAddress(addresses[i][:])
+
+			// 并发执行AddAccount和WriteAccountSnapshot
+			var addAccountErr error
+			var snapWg sync.WaitGroup
+
+			// 执行AddAccount
+			snapWg.Add(1)
+			go func() {
+				startPut := time.Now()
+				defer snapWg.Done()
+				addAccountErr = r.db.AddAccount(address, accounts[i])
+				if addAccountErr != nil {
+					fmt.Println("init account err", addAccountErr)
+				}
+				// 更新延迟统计
+				if r.db.GetMPTEngine() == VERSADBEngine {
+					VersaDBAccPutLatency.Update(time.Since(startPut))
+				} else {
+					StateDBAccPutLatency.Update(time.Since(startPut))
+				}
+				r.accountKeyCache.Add(address.String())
+			}()
+
+			// 并发执行快照写入（如果需要）
+			if r.db.GetMPTEngine() == StateTrieEngine && r.db.GetFlattenDB() != nil {
+				snapWg.Add(1)
+				go func() {
+					defer snapWg.Done()
+					snapDB := r.db.GetFlattenDB()
+					data, err := rlp.EncodeToBytes(accounts[i])
+					if err != nil {
+						fmt.Println("decode account err when init")
+						return
+					}
+					rawdb.WriteAccountSnapshot(snapDB, crypto.Keccak256Hash(address.Bytes()), data)
+				}()
 			}
-			rawdb.WriteAccountSnapshot(snapDB, crypto.Keccak256Hash(address.Bytes()), data)
-		}
+
+			// 等待两个IO操作都完成
+			snapWg.Wait()
+
+		}(i)
 	}
+
+	// 等待所有账户处理完成
+	wg.Wait()
 
 	commtStart := time.Now()
 	if _, err := r.db.Commit(); err != nil {
@@ -1028,37 +1056,52 @@ func (d *DBRunner) InitSingleStorageTrie(
 	}
 
 	var err error
-	if firstInsert {
-		v, err2 := d.db.GetAccount(address)
-		if err2 == nil && len(v) > 0 {
-			fmt.Println("already exit the account of storage trie", address)
-			return
-		}
-		// add new storage
-		err = d.db.AddStorage(address, value.Keys, value.Vals)
-		if err != nil {
-			fmt.Println("init storage err:", err.Error())
-		}
-	} else {
-		startPut := time.Now()
-		_, err = d.db.UpdateStorage(address, value.Keys, value.Vals)
-		if err != nil {
-			fmt.Println("update storage err:", err.Error())
-		}
-		microseconds := time.Since(startPut).Microseconds() / int64(len(value.Keys))
-		if d.db.GetMPTEngine() == VERSADBEngine {
-			versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+	var storageWg sync.WaitGroup
+
+	// 线程1: 执行AddStorage或UpdateStorage
+	storageWg.Add(1)
+	go func() {
+		defer storageWg.Done()
+		if firstInsert {
+			v, err2 := d.db.GetAccount(address)
+			if err2 == nil && len(v) > 0 {
+				fmt.Println("already exit the account of storage trie", address)
+				return
+			}
+			// add new storage
+			err = d.db.AddStorage(address, value.Keys, value.Vals)
+			if err != nil {
+				fmt.Println("init storage err:", err.Error())
+			}
 		} else {
-			StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+			startPut := time.Now()
+			_, err = d.db.UpdateStorage(address, value.Keys, value.Vals)
+			if err != nil {
+				fmt.Println("update storage err:", err.Error())
+			}
+			microseconds := time.Since(startPut).Microseconds() / int64(len(value.Keys))
+			if d.db.GetMPTEngine() == VERSADBEngine {
+				versaDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+			} else {
+				StateDBStoragePutLatency.Update(time.Duration(microseconds) * time.Microsecond)
+			}
 		}
+	}()
+
+	// 线程2: 并发执行快照写入（如果需要）
+	if snapDB != nil {
+		storageWg.Add(1)
+		go func() {
+			defer storageWg.Done()
+			accHash := crypto.Keccak256Hash(address.Bytes())
+			for i, k := range value.Keys {
+				rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(value.Vals[i]))
+			}
+		}()
 	}
 
-	if snapDB != nil {
-		accHash := crypto.Keccak256Hash(address.Bytes())
-		for i, k := range value.Keys {
-			rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(value.Vals[i]))
-		}
-	}
+	// 等待两个IO操作都完成
+	storageWg.Wait()
 	// init 3 accounts to commit a block
 	addresses, accounts := makeAccountsV3(2)
 	for i := 0; i < len(addresses); i++ {
