@@ -684,6 +684,11 @@ func (r *DBRunner) printStat() {
 func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 	addresses, accounts := makeAccountsV2(startIndex, size)
 
+	// 添加计数器来跟踪写入数据条数
+	var addAccountCount int64 = 0
+	var snapWriteCount int64 = 0
+	var mu sync.Mutex
+
 	for i := 0; i < len(addresses); i++ {
 		address := common.BytesToAddress(addresses[i][:])
 		startPut := time.Now()
@@ -700,6 +705,13 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 			if addAccountErr != nil {
 				fmt.Println("init account err", addAccountErr)
 			}
+
+			// 增加AddAccount计数器
+			mu.Lock()
+			addAccountCount++
+			currentAddCount := addAccountCount
+			mu.Unlock()
+
 			// 更新延迟统计
 			if r.db.GetMPTEngine() == VERSADBEngine {
 				VersaDBAccPutLatency.Update(time.Since(startPut))
@@ -707,6 +719,14 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 				StateDBAccPutLatency.Update(time.Since(startPut))
 			}
 			r.accountKeyCache.Add(address.String())
+
+			// 每100000条打印一次对比
+			if currentAddCount%100000 == 0 {
+				mu.Lock()
+				fmt.Printf("[ACCOUNT TRACKING] AddAccount: %d, SnapshotWrite: %d, Diff: %d\n",
+					addAccountCount, snapWriteCount, addAccountCount-snapWriteCount)
+				mu.Unlock()
+			}
 		}()
 
 		// 并发执行快照写入（如果需要）
@@ -721,6 +741,20 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 					return
 				}
 				rawdb.WriteAccountSnapshot(snapDB, crypto.Keccak256Hash(address.Bytes()), data)
+
+				// 增加快照写入计数器
+				mu.Lock()
+				snapWriteCount++
+				currentSnapCount := snapWriteCount
+				mu.Unlock()
+
+				// 每100000条打印一次对比
+				if currentSnapCount%100000 == 0 {
+					mu.Lock()
+					fmt.Printf("[SNAPSHOT TRACKING] AddAccount: %d, SnapshotWrite: %d, Diff: %d\n",
+						addAccountCount, snapWriteCount, addAccountCount-snapWriteCount)
+					mu.Unlock()
+				}
 			}()
 		}
 
@@ -728,6 +762,10 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 		snapWg.Wait()
 
 	}
+
+	// 打印最终的计数统计
+	fmt.Printf("[FINAL ACCOUNT TRACKING] Total AddAccount: %d, Total SnapshotWrite: %d, Diff: %d\n",
+		addAccountCount, snapWriteCount, addAccountCount-snapWriteCount)
 
 	commtStart := time.Now()
 	if _, err := r.db.Commit(); err != nil {

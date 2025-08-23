@@ -43,7 +43,7 @@ type StateDBRunner struct {
 func NewStateRunner(datadir string, root common.Hash) *StateDBRunner {
 	triedb, triediskdb, err := MakePBSSTrieDatabase(datadir)
 
-	leveldb, err := rawdb.NewPebbleDBDatabase("snapshot", 4096, 50000, "",
+	leveldb, err := rawdb.NewPebbleDBDatabase("snapshot", 128, 50000, "",
 		false, true)
 	if err != nil {
 		panic("create leveldb err" + err.Error())
