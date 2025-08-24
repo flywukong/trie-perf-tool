@@ -747,7 +747,6 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 				// 增加快照写入计数器
 				mu.Lock()
 				snapWriteCount++
-				currentSnapCount := snapWriteCount
 				mu.Unlock()
 
 			}(address, accounts[i])
