@@ -46,6 +46,9 @@ type DBRunner struct {
 	smallStorageTrie      []common.Address
 	storageOwnerList      []common.Address
 	owners                []common.Hash
+	// 全局Storage写入计数器
+	storageSnapWriteCount int64
+	storageSnapMutex      sync.Mutex
 }
 
 func NewDBRunner(
@@ -103,6 +106,21 @@ func (d *DBRunner) getSmallTrieActualSize(address common.Address) uint64 {
 	// 如果找不到，返回默认大小
 	fmt.Printf("Warning: address %s not found in smallStorageTrie, using default size\n", address.Hex())
 	return d.perfConfig.SmallStorageSize
+}
+
+// trackStorageWrite 记录Storage快照写入
+func (d *DBRunner) trackStorageWrite() {
+	d.storageSnapMutex.Lock()
+	d.storageSnapWriteCount++
+	d.storageSnapMutex.Unlock()
+}
+
+// printStorageStats 打印Storage写入的最终统计
+func (d *DBRunner) printStorageStats() {
+	d.storageSnapMutex.Lock()
+	count := d.storageSnapWriteCount
+	d.storageSnapMutex.Unlock()
+	fmt.Printf("[FINAL STORAGE TRACKING] Total Storage Snapshot Writes: %d\n", count)
 }
 
 func (d *DBRunner) Run(ctx context.Context) {
@@ -688,59 +706,43 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 	var addAccountCount int64 = 0
 	var snapWriteCount int64 = 0
 	var mu sync.Mutex
+	var snapWg sync.WaitGroup // 等待所有异步快照写入完成
 
 	for i := 0; i < len(addresses); i++ {
 		address := common.BytesToAddress(addresses[i][:])
 		startPut := time.Now()
 
-		// 并发执行AddAccount和WriteAccountSnapshot
-		var addAccountErr error
-		var snapWg sync.WaitGroup
+		// 串行执行AddAccount（避免并发写入trie）
+		addAccountErr := r.db.AddAccount(address, accounts[i])
+		if addAccountErr != nil {
+			fmt.Println("init account err", addAccountErr)
+		}
 
-		// 执行AddAccount
-		snapWg.Add(1)
-		go func() {
-			defer snapWg.Done()
-			addAccountErr = r.db.AddAccount(address, accounts[i])
-			if addAccountErr != nil {
-				fmt.Println("init account err", addAccountErr)
-			}
+		// 增加AddAccount计数器
+		mu.Lock()
+		addAccountCount++
+		mu.Unlock()
 
-			// 增加AddAccount计数器
-			mu.Lock()
-			addAccountCount++
-			currentAddCount := addAccountCount
-			mu.Unlock()
+		// 更新延迟统计
+		if r.db.GetMPTEngine() == VERSADBEngine {
+			VersaDBAccPutLatency.Update(time.Since(startPut))
+		} else {
+			StateDBAccPutLatency.Update(time.Since(startPut))
+		}
+		r.accountKeyCache.Add(address.String())
 
-			// 更新延迟统计
-			if r.db.GetMPTEngine() == VERSADBEngine {
-				VersaDBAccPutLatency.Update(time.Since(startPut))
-			} else {
-				StateDBAccPutLatency.Update(time.Since(startPut))
-			}
-			r.accountKeyCache.Add(address.String())
-
-			// 每100000条打印一次对比
-			if currentAddCount%100000 == 0 {
-				mu.Lock()
-				fmt.Printf("[ACCOUNT TRACKING] AddAccount: %d, SnapshotWrite: %d, Diff: %d\n",
-					addAccountCount, snapWriteCount, addAccountCount-snapWriteCount)
-				mu.Unlock()
-			}
-		}()
-
-		// 并发执行快照写入（如果需要）
+		// 并发执行快照写入（如果需要）- 这个可以并发因为写入不同的数据库
 		if r.db.GetMPTEngine() == StateTrieEngine && r.db.GetFlattenDB() != nil {
 			snapWg.Add(1)
-			go func() {
+			go func(addr common.Address, account *types.StateAccount) {
 				defer snapWg.Done()
 				snapDB := r.db.GetFlattenDB()
-				data, err := rlp.EncodeToBytes(accounts[i])
+				data, err := rlp.EncodeToBytes(account)
 				if err != nil {
 					fmt.Println("decode account err when init")
 					return
 				}
-				rawdb.WriteAccountSnapshot(snapDB, crypto.Keccak256Hash(address.Bytes()), data)
+				rawdb.WriteAccountSnapshot(snapDB, crypto.Keccak256Hash(addr.Bytes()), data)
 
 				// 增加快照写入计数器
 				mu.Lock()
@@ -748,24 +750,19 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 				currentSnapCount := snapWriteCount
 				mu.Unlock()
 
-				// 每100000条打印一次对比
-				if currentSnapCount%100000 == 0 {
-					mu.Lock()
-					fmt.Printf("[SNAPSHOT TRACKING] AddAccount: %d, SnapshotWrite: %d, Diff: %d\n",
-						addAccountCount, snapWriteCount, addAccountCount-snapWriteCount)
-					mu.Unlock()
-				}
-			}()
+			}(address, accounts[i])
 		}
-
-		// 等待两个IO操作都完成
-		snapWg.Wait()
-
 	}
+
+	// 等待所有异步快照写入完成
+	snapWg.Wait()
 
 	// 打印最终的计数统计
 	fmt.Printf("[FINAL ACCOUNT TRACKING] Total AddAccount: %d, Total SnapshotWrite: %d, Diff: %d\n",
 		addAccountCount, snapWriteCount, addAccountCount-snapWriteCount)
+
+	// 打印Storage写入统计
+	r.printStorageStats()
 
 	commtStart := time.Now()
 	if _, err := r.db.Commit(); err != nil {
@@ -779,7 +776,6 @@ func (r *DBRunner) InitAccount(blockNum, startIndex, size uint64) {
 		stateDBCommitLatency.Update(r.commitDuration)
 	}
 
-	r.trySleep()
 	fmt.Println("init db account commit success, block number", blockNum)
 }
 
@@ -1124,6 +1120,7 @@ func (d *DBRunner) UpdateDB(
 					storageHash := hashData([]byte(k))
 					cachekey := append(accHash[:], storageHash[:]...)
 					rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(newVals[i]))
+					d.trackStorageWrite()
 					cache.Set(cachekey, []byte(newVals[i]))
 				}
 			}
@@ -1140,6 +1137,7 @@ func (d *DBRunner) UpdateDB(
 					storageHash := hashData([]byte(k))
 					cachekey := append(accHash[:], storageHash[:]...)
 					rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(newVals[i]))
+					d.trackStorageWrite()
 					cache.Set(cachekey, []byte(newVals[i]))
 				}
 			}
@@ -1202,6 +1200,7 @@ func (d *DBRunner) InitSingleStorageTrie(
 			accHash := crypto.Keccak256Hash(address.Bytes())
 			for i, k := range value.Keys {
 				rawdb.WriteStorageSnapshot(snapDB, accHash, hashData([]byte(k)), []byte(value.Vals[i]))
+				d.trackStorageWrite()
 			}
 		}()
 	}
