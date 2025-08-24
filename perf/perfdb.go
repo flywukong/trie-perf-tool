@@ -157,7 +157,7 @@ func (d *DBRunner) Run(ctx context.Context) {
 			d.storageOwnerList[i] = common.BytesToAddress(ownerList[i])
 		}
 
-		//	d.InitLargeStorageTries()
+		d.InitLargeStorageTries()
 		//	fmt.Println("init the large tries finish")
 
 		//	d.InitSmallStorageTrie()
