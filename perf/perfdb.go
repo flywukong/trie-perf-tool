@@ -323,7 +323,7 @@ func (d *DBRunner) generateRunTasks(ctx context.Context, batchSize uint64) {
 					accounts[i] = data
 				}
 
-				accountList := xxgenAccountKeyV2(d.perfConfig.AccountsInitSize, uint64(updateAccounts)/10*10)
+				accountList := genAccountKeyV2(d.perfConfig.AccountsInitSize, uint64(updateAccounts)/10*10)
 
 				for i := 0; i < updateAccounts/10*10; i++ {
 					//	d.accountKeyCache.Add(accKeys[i])
