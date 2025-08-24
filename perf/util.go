@@ -28,8 +28,8 @@ const (
 	InitAccounts           = 10000000
 	AccountKeyCacheSize    = 200000
 	LargeStorageTrieNum    = 2
-	MaxLargeStorageTrieNum = 20
-	MaxCATrieNum           = 20000
+	MaxLargeStorageTrieNum = 60
+	MaxCATrieNum           = 50000000
 	SmallTriesReadInBlock  = 6
 	TrieCleanCache         = 1540
 	TotalAccount           = 200000000
